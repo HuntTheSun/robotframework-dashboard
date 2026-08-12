@@ -6,9 +6,10 @@ const keywords = decode_and_decompress("placeholder_keywords");
 
 function decode_and_decompress(base64Str) {
     if (base64Str.includes("placeholder_")) return [];
-    const compressedData = Uint8Array.from(atob(base64Str), c => c.charCodeAt(0));
-    const decompressedData = pako.inflate(compressedData, { to: 'string' });
-    return JSON.parse(decompressedData);
+	const bin = atob(base64Str);
+	const bytes = new Uint8Array(bin.length);
+	for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return JSON.parse(pako.inflate(bytes, { to: 'string' }));
 }
 
 var unified_dashboard_title = '"placeholder_dashboard_title"'
