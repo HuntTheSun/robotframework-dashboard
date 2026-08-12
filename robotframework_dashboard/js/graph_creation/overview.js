@@ -566,7 +566,7 @@ function create_project_cards_container(projectName, projectRuns, percent = null
         const createdRunCardId = create_project_run_card(run, projectName, idx, runNumber, passRate, percent, durations, false);
         const createdRunCard = document.getElementById(createdRunCardId);
         container.appendChild(createdRunCard);
-        create_overview_run_donut(run, idx, projectName);
+        // create_overview_run_donut(run, idx, projectName);
     });
 }
 
@@ -743,13 +743,14 @@ function create_project_run_card(run, projectName, runIndex, runNumber, passRate
             set_filter_show_current_project(projectName);
             update_menu("menuDashboard");
         });
-        create_overview_run_donut(run, runIndex, projectNameForId);
+        // create_overview_run_donut(run, runIndex, projectNameForId);
         const versionElement = createdRunCard.querySelector('[data-js-target="apply-version-filter"]');
         versionElement && attach_run_card_version_listener(versionElement, projectName, run.project_version ?? "None");
     }
     return `${projectNameForId}Card${runIndex}`;
 }
 
+// commented out for now to test performance
 function create_overview_run_donut(run, chartElementPostfix, projectName) {
     let passed, failed, skipped;
     const idGraphSubString = "Graph";
