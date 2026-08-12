@@ -1,15 +1,44 @@
-// prepare input data
-const runs = decode_and_decompress("placeholder_runs");
-const suites = decode_and_decompress("placeholder_suites");
-const tests = decode_and_decompress("placeholder_tests");
-const keywords = decode_and_decompress("placeholder_keywords");
+// prepare input data — populated by load_data() before main() runs
+let runs = [];
+let suites = [];
+let tests = [];
+let keywords = [];
 
-function decode_and_decompress(base64Str) {
+async function decode_and_decompress(base64Str) {
     if (base64Str.includes("placeholder_")) return [];
-	const bin = atob(base64Str);
-	const bytes = new Uint8Array(bin.length);
-	for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-    return JSON.parse(pako.inflate(bytes, { to: 'string' }));
+    const bin = atob(base64Str);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+
+    const ds = new DecompressionStream('deflate');
+    const writer = ds.writable.getWriter();
+    writer.write(bytes);   // deliberately not awaited — awaiting here deadlocks
+    writer.close();
+
+    const reader = ds.readable.getReader();
+    const chunks = [];
+    let total = 0;
+    for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+        total += value.length;
+    }
+
+    const out = new Uint8Array(total);
+    let offset = 0;
+    for (const chunk of chunks) { out.set(chunk, offset); offset += chunk.length; }
+    chunks.length = 0;   // release the chunk copies before JSON.parse allocates
+
+    return JSON.parse(new TextDecoder().decode(out));
+}
+
+// must be awaited before anything reads runs/suites/tests/keywords
+async function load_data() {
+    runs = await decode_and_decompress("placeholder_runs");
+    suites = await decode_and_decompress("placeholder_suites");
+    tests = await decode_and_decompress("placeholder_tests");
+    keywords = await decode_and_decompress("placeholder_keywords");
 }
 
 var unified_dashboard_title = '"placeholder_dashboard_title"'
@@ -28,6 +57,7 @@ export {
     suites,
     tests,
     keywords,
+    load_data,
     message_config,
     force_json_config,
     json_config,
