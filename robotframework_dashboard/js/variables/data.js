@@ -35,10 +35,16 @@ async function decode_and_decompress(base64Str) {
 
 // must be awaited before anything reads runs/suites/tests/keywords
 async function load_data() {
-    runs = await decode_and_decompress("placeholder_runs");
-    suites = await decode_and_decompress("placeholder_suites");
-    tests = await decode_and_decompress("placeholder_tests");
-    keywords = await decode_and_decompress("placeholder_keywords");
+    const keys = [
+        "placeholder_runs",
+        "placeholder_suites",
+        "placeholder_tests",
+        "placeholder_keywords"
+    ];
+
+    [runs, suites, tests, keywords] = await Promise.all(
+        keys.map(key => decode_and_decompress(key))
+    );
 }
 
 var unified_dashboard_title = '"placeholder_dashboard_title"'
