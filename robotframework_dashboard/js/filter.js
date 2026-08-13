@@ -355,8 +355,8 @@ function filter_metadata(filteredRuns) {
 // function to filter suites/tests/keywords based on the already filtered runs
 function filter_data(data) {
     // Step 1: Only include entries that match filteredRuns
-    const validRunStarts = filteredRuns.map(v => v.run_start);
-    let filteredData = data.filter(v => validRunStarts.includes(v.run_start));
+    const validRunStarts = new Set(filteredRuns.map(v => v.run_start));
+    let filteredData = data.filter(v => validRunStarts.has(v.run_start));
     // Step 2: Check if the first element has an "owner" key
     if (filteredData.length > 0 && "owner" in filteredData[0]) {
         const libraries = settings.libraries || {};
