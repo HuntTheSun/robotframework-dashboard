@@ -531,6 +531,43 @@ See Settings > Overview for more options.`;
     projectVersionFilterSearch.addEventListener('input', debounce(handle_version_filter_input, delayScaledByRunAmount));
 }
 
+// Rebuilds project bar version filter dropdown + checkbox listeners
+function update_project_version_filter_dropdown(projectName) {
+    const dropDown = document.getElementById(`${projectName}VersionFilterDropDown`);
+    if (!dropDown) return;
+    const listEl = dropDown.querySelector("ul.dropdown-menu");
+    if (!listEl) return;
+
+    const projectVersions = new Set(
+        Object.keys(versionsByProject[projectName] || {})
+            .sort()
+            .reverse()
+    );
+    const versionAmount = projectVersions.size;
+    const versionFilterListItemAllHtml = generate_version_filter_list_item_html("All", projectName, "checked", versionAmount, "version");
+    const versionFilterListItemsHtml = versionFilterListItemAllHtml +
+        [...projectVersions]
+            .map(version => {
+                const runAmount = versionsByProject[projectName][version];
+                return generate_version_filter_list_item_html(version, projectName, "", runAmount, "run");
+            })
+            .join('');
+    listEl.innerHTML = versionFilterListItemsHtml;
+
+    const versionFilterArgs = {
+        cardsContainerId: `${projectName}RunCardsContainer`,
+        versionDropDownFilterId: `${projectName}VersionFilterDropDown`,
+        versionStringFilterId: `${projectName}VersionFilterSearch`,
+    };
+    const allVersionsCheckBox = document.getElementById(`${projectName}VersionFilterListItemAllInput`);
+    setup_filter_checkbox_handler_listeners(
+        dropDown,
+        allVersionsCheckBox,
+        `${projectName}VersionSelectedIndicator`,
+        () => { update_project_version_filter_run_card_visibility(versionFilterArgs) }
+    );
+}
+
 function create_project_overview() {
     const projectData = { ...projects_by_name, ...projects_by_tag };
     // create run cards for each project
