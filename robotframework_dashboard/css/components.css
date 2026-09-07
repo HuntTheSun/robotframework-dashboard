@@ -461,6 +461,17 @@
   color: var(--color-run-card-hover) !important;
 }
 
+.run-card-custom-filters {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  width: fit-content;
+}
+
+.run-card-custom-filter {
+  font-size: 0.85em;
+}
+
 .grid-stack-item-content {
   border-radius: 8px;
   display: flex;

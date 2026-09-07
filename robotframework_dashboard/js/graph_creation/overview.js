@@ -38,7 +38,8 @@ import {
     clear_all_filters,
     update_filter_active_indicator,
     setup_filter_checkbox_handler_listeners,
-    generate_version_filter_list_item_html
+    generate_version_filter_list_item_html,
+    parse_custom_filters,
 } from '../filter.js';
 
 // Data prep/aggregation
@@ -134,6 +135,7 @@ function generate_overview_card_html(
     isForOverview = false,
     isTotalStats = false,
     sectionPrefix = 'overview',
+    customFilters = null,
 ) {
     const normalizedProjectVersion = projectVersion ?? "None";
     // ensure overview stats and project bar card ids unique
@@ -152,6 +154,22 @@ function generate_overview_card_html(
     if (isTotalStats) {
         smallVersionHtml = '';
         compares = '';
+    }
+    // custom filter attributes selected in settings, shown on individual run cards only
+    const selectedCustomFilterKeys = settings.show.overviewCustomFilterKeys ?? [];
+    let customFiltersHtml = '';
+    if (!isTotalStats && selectedCustomFilterKeys.length) {
+        const parsedCustomFilters = parse_custom_filters(customFilters);
+        const customFilterRows = selectedCustomFilterKeys
+            .filter(key => parsedCustomFilters[key] !== undefined)
+            .map(key => `
+                <div class="run-card-custom-filter" title="Custom filter attribute">
+                    <span class="text-muted">${key}:</span> ${parsedCustomFilters[key]}
+                </div>
+            `).join('');
+        if (customFilterRows) {
+            customFiltersHtml = `<div class="run-card-custom-filters">${customFilterRows}</div>`;
+        }
     }
     // for project bars
     const runsForProject = projects_by_name[projectName] ?? projects_by_tag[projectName] ?? [];
@@ -233,6 +251,7 @@ function generate_overview_card_html(
                             </div>
                             <div>Passed Runs: ${passed_runs}%</div>
                             ${smallVersionHtml}
+                            ${customFiltersHtml}
                             ${logLinkHtml}
                         </div>
                     </div>
@@ -765,6 +784,7 @@ function create_project_run_card(run, projectName, runIndex, runNumber, passRate
         isForOverview,
         isTotalStats,
         sectionPrefix,
+        run.custom_filters,
     )
     const existingRunCard = document.getElementById(`${projectNameForId}Card${runIndex}`);
     if (existingRunCard) {
