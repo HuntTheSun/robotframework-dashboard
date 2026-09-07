@@ -874,6 +874,12 @@ function update_grouped_data_for_filter() {
     prepare_latest_run_by_project();
     prepare_projects_version_counts_map({ ...projects_by_name, ...projects_by_tag });
     const projectData = { ...projects_by_name, ...projects_by_tag };
+    Object.keys(projectData).forEach(projectName => {
+        if (!document.getElementById(`${projectName}Section`)) {
+            create_project_cards_container(projectName, projectData[projectName]);
+        }
+    });
+    setup_collapsables();
     document.querySelectorAll(".overview-project-card").forEach(bar => {
         const projectName = bar.id.replace(/Section$/, "");
         const projectRuns = projectData[projectName];
