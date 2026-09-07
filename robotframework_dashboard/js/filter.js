@@ -25,10 +25,21 @@ function sort_wall_clock(data) {
 
 // function updates the data in the graphs whenever filters are updated
 function setup_filtered_data_and_filters() {
-    filteredRuns = remove_milliseconds(runs)
-    filteredSuites = remove_milliseconds(suites)
-    filteredTests = remove_milliseconds(tests)
-    filteredKeywords = remove_milliseconds(keywords)
+    filteredRuns = filter_runs(runs);
+    filteredRuns = filter_runtags(filteredRuns);
+    filteredRuns = filter_dates(filteredRuns);
+    filteredRuns = filter_metadata(filteredRuns);
+    filteredRuns = filter_project_versions(filteredRuns);
+    filteredRuns = filter_custom_filters(filteredRuns);
+    filteredRuns = filter_runs_by_suite_path(filteredRuns);
+    filteredRuns = filter_amount(filteredRuns);
+    filteredSuites = filter_data(suites);
+    filteredTests = filter_data(tests);
+    filteredKeywords = filter_data(keywords);
+    filteredRuns = remove_milliseconds(filteredRuns)
+    filteredSuites = remove_milliseconds(filteredSuites)
+    filteredTests = remove_milliseconds(filteredTests)
+    filteredKeywords = remove_milliseconds(filteredKeywords)
     // convert timezones if enabled (must run before remove_timezones so the offset is still present)
     filteredRuns = convert_timezone(filteredRuns);
     filteredSuites = convert_timezone(filteredSuites);
@@ -40,18 +51,7 @@ function setup_filtered_data_and_filters() {
     filteredTests = remove_timezones(filteredTests);
     filteredKeywords = remove_timezones(filteredKeywords);
     // determine filteredRuns with all run-level filters (suite path + amount last)
-    filteredRuns = filter_runs(filteredRuns);
-    filteredRuns = filter_runtags(filteredRuns);
-    filteredRuns = filter_dates(filteredRuns);
-    filteredRuns = filter_metadata(filteredRuns);
-    filteredRuns = filter_project_versions(filteredRuns);
-    filteredRuns = filter_custom_filters(filteredRuns);
-    filteredRuns = filter_runs_by_suite_path(filteredRuns);
-    filteredRuns = filter_amount(filteredRuns);
     // single pass: filter each dependent array against the final filteredRuns
-    filteredSuites = filter_data(filteredSuites);
-    filteredTests = filter_data(filteredTests);
-    filteredKeywords = filter_data(filteredKeywords);
     // narrow suites/tests to the selected path prefix (runs already reduced above)
     filter_suite_path_data();
     // re-sort all filtered data by wall-clock run_start so mixed-timezone datasets
