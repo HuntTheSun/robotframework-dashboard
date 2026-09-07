@@ -932,6 +932,7 @@ function update_grouped_data_for_filter() {
                 subtitleEl.textContent = `Total Runs: ${totalRunsAmount} | Passed Runs: ${passRate}%`;
             }
             create_project_cards_container(projectName, projectRuns);
+			update_project_version_filter_dropdown(projectName);
         }
     });
     update_overview_version_select_list();
