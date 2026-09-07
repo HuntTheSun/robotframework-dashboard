@@ -796,6 +796,10 @@ function create_project_run_card(run, projectName, runIndex, runNumber, passRate
         cardsContainer.appendChild(document.createRange().createContextualFragment(projectRunCardHTML));
         const createdRunCard = document.getElementById(`${projectNameForId}Card${runIndex}`);
         createdRunCard.addEventListener("click", () => {
+            const selection = window.getSelection();
+            if (selection && selection.toString().length > 0) {
+                return; // Dont fire if user selects sth inside card
+            }
             clear_all_filters();
             set_filter_show_current_project(projectName);
             update_menu("menuDashboard");

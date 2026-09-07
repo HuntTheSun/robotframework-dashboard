@@ -1485,6 +1485,10 @@ function setup_collapsables() {
 
 function attach_run_card_version_listener(versionElement, projectName, projectVersion) {
     versionElement.addEventListener("click", (event) => {
+        const selection = window.getSelection();
+        if (selection && selection.toString().length > 0) {
+            return; // Dont fire if user selects version string
+        }
         clear_all_filters();
         set_filter_show_current_project(projectName);
         set_filter_show_current_version(projectVersion);
