@@ -433,10 +433,13 @@ class DatabaseProcessor(AbstractDatabaseProcessor):
                     console += self._remove_by_index(run, run_starts)
                 elif "alias=" in run:
                     console += self._remove_by_alias(run, run_starts, run_aliases)
+                elif "limit=" in run:
+                    # checked before "tag=" because a scoped combo ("limit=10;tag=x")
+                    # still contains the substring "tag=" and would otherwise be
+                    # misrouted to _remove_by_tag
+                    console += self._remove_by_limit(run, run_starts, run_tags)
                 elif "tag=" in run:
                     console += self._remove_by_tag(run, run_starts, run_tags)
-                elif "limit=" in run:
-                    console += self._remove_by_limit(run, run_starts)
                 elif "age=" in run:
                     console += self._remove_by_age(run, run_starts)
                 else:
@@ -444,11 +447,11 @@ class DatabaseProcessor(AbstractDatabaseProcessor):
                         f"  ERROR: incorrect usage of the remove_run feature ({run}), check out robotdashboard --help for instructions"
                     )
                     console += f"  ERROR: incorrect usage of the remove_run feature ({run}), check out robotdashboard --help for instructions\n"
-            except:
+            except Exception as error:
                 print(
-                    f"  ERROR: Could not find run to remove from the database: {run}, check out robotdashboard --help for instructions"
+                    f"  ERROR: Could not remove run: {run}, reason: {error}, check out robotdashboard --help for instructions"
                 )
-                console += f"  ERROR: Could not find run to remove from the database: {run}, check out robotdashboard --help for instructions\n"
+                console += f"  ERROR: Could not remove run: {run}, reason: {error}, check out robotdashboard --help for instructions\n"
         return console
 
     def _remove_by_run_start(self, run: str, run_starts: list):
@@ -513,16 +516,39 @@ class DatabaseProcessor(AbstractDatabaseProcessor):
             console += f"  WARNING: no runs were removed as no runs were found with tag: {tag}\n"
         return console
 
-    def _remove_by_limit(self, run: str, run_starts: list):
+    def _remove_by_limit(self, run: str, run_starts: list, run_tags: list = None):
+        """Keep the N newest runs, removing older ones.
+
+        When tag filters are appended (e.g. 'limit=10;tag=nightly;tag=prod'),
+        the limit is scoped to runs matching any of those tags: the N newest
+        matching runs are kept, older matching runs are removed, and runs that
+        do not match any tag are left untouched.
+        """
         console = ""
-        limit = int(run.replace("limit=", ""))
-        if limit >= len(run_starts):
+        parts = run.split(";")
+        limit = int(parts[0].replace("limit=", ""))
+        tag_filters = [
+            part.replace("tag=", "") for part in parts[1:] if part.startswith("tag=")
+        ]
+        # run_starts are ordered oldest -> newest, so keeping the N newest means
+        # dropping the leading (oldest) candidates.
+        if tag_filters and run_tags is not None:
+            candidates = [
+                index
+                for index, run_tag in enumerate(run_tags)
+                if any(tag in run_tag for tag in tag_filters)
+            ]
+            scope = f" with tag(s) {', '.join(tag_filters)}"
+        else:
+            candidates = list(range(len(run_starts)))
+            scope = ""
+        if limit >= len(candidates):
             print(
-                f"  WARNING: no runs were removed as the provided limit ({limit}) is higher than the total number of runs ({len(run_starts)})"
+                f"  WARNING: no runs were removed as the provided limit ({limit}) is higher than the total number of runs{scope} ({len(candidates)})"
             )
-            console += f"  WARNING: no runs were removed as the provided limit ({limit}) is higher than the total number of runs ({len(run_starts)})\n"
+            console += f"  WARNING: no runs were removed as the provided limit ({limit}) is higher than the total number of runs{scope} ({len(candidates)})\n"
             return console
-        for index in range(len(run_starts) - limit):
+        for index in candidates[: len(candidates) - limit]:
             self._remove_run(run_starts[index])
             print(
                 f"  Removed run from the database: index={index}, run_start={run_starts[index]}"
@@ -531,12 +557,16 @@ class DatabaseProcessor(AbstractDatabaseProcessor):
         return console
 
     def _remove_by_age(self, run_query: str, run_starts: list):
+        # NOTE: issue #309 / PR #313 only asked for tag-scoped retention on
+        # "limit" (see _remove_by_limit); age intentionally has no tag scoping
+        # here, matching the original issue's proposed direction.
         console = ""
         try:
             clean_query = run_query.replace("age=", "")
             mod, delta = self.parse_time_range(clean_query)
         except ValueError as e:
-            return f" ERROR: {e}"
+            print(f"  ERROR: {e}")
+            return f"  ERROR: {e}\n"
         cutoff = datetime.now(timezone.utc)-delta
         targets = []
         for r in run_starts:
@@ -553,7 +583,10 @@ class DatabaseProcessor(AbstractDatabaseProcessor):
             except ValueError as e:
                 print(f"    WARNING: Skipping invalid timestamp: '{r}' ({e})")
         if not targets:
-            console += f"  WARNING: no runs were removed as no runs were within range {clean_query}"
+            print(
+                f"  WARNING: no runs were removed as no runs were within range {clean_query}"
+            )
+            console += f"  WARNING: no runs were removed as no runs were within range {clean_query}\n"
             return console
         for run_to_remove in targets:
             self._remove_run(run_to_remove)

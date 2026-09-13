@@ -113,6 +113,7 @@ remove_outputs_model_config = {
                 "tags": ["tag1", "tag2", "tag3"],
             },
             {"limit": 10},
+            {"limit": 10, "tags": ["nightly"]},
             {"age": "10d"},
             {"age": "-10d"},
             {"all": True},
@@ -147,10 +148,18 @@ remove_outputs_model_config = {
                 "description": "Remove runs older than a threshold (e.g., '10d') or younger than a threshold (e.g., '-10d'). Supports (y)ear/(d)ay/(h)our/(m)inute/(s)econd.",
                 "value": {"age": "10d"},
             },
+            # NOTE: 'age' intentionally has no tag-scoped variant — see issue #309,
+            # which only asked for tag-scoped retention on 'limit' (below).
+            # 'age' + 'tags' together just run as two independent operations.
             "limit": {
                 "summary": "Remove all but the N most recent runs",
                 "description": "Keep only the specified number of most recent runs, deleting the rest.",
                 "value": {"limit": 10},
+            },
+            "limit_by_tag": {
+                "summary": "Keep N most recent runs within a tag",
+                "description": "When 'tags' is combined with 'limit', the limit is scoped to runs matching any given tag: the N newest matching runs are kept, older matching runs are removed, and runs without those tags are left untouched.",
+                "value": {"limit": 10, "tags": ["nightly"]},
             },
             "all": {
                 "summary": "Remove all outputs",
@@ -621,13 +630,25 @@ class ApiServer:
                     if remove_output.aliases != None:
                         for run in remove_output.aliases:
                             remove_runs.append(f"alias={run}")
-                    if remove_output.tags != None:
+                    # When tags are combined with limit, scope the limit to the
+                    # tagged runs (keep/remove only matching runs, leave others
+                    # alone) instead of removing all tagged runs outright.
+                    # NOTE: 'age' has no tag-scoped variant (see issue #309,
+                    # which only requested this for 'limit') — 'age' + 'tags'
+                    # together just run as two independent operations below.
+                    scope_tags = remove_output.tags != None and remove_output.limit != None
+                    tag_suffix = (
+                        "".join(f";tag={tag}" for tag in remove_output.tags)
+                        if scope_tags
+                        else ""
+                    )
+                    if remove_output.tags != None and not scope_tags:
                         for run in remove_output.tags:
                             remove_runs.append(f"tag={run}")
                     if remove_output.age != None:
                         remove_runs.append(f"age={remove_output.age}")
                     if remove_output.limit != None:
-                        remove_runs.append(f"limit={remove_output.limit}")
+                        remove_runs.append(f"limit={remove_output.limit}{tag_suffix}")
                 paths_before = self.robotdashboard.get_run_paths()
                 console = self.robotdashboard.remove_outputs(remove_runs)
                 paths_after = self.robotdashboard.get_run_paths()

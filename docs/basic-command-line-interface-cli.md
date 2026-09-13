@@ -114,8 +114,10 @@ robotdashboard -r index=0,index=1:4;9,index=10
 robotdashboard --removeruns 'run_start=2024-07-30 15:27:20.184407,index=20'  
 robotdashboard -r alias=some_cool_alias,tag=prod,tag=dev -r alias=alias12345  
 robotdashboard -r limit=10
-robotdashboard -r age=10d # (y)ear/(d)ay/(h)our/(m)inute/(s)econd supported
-robotdashboard -r age=-10d
+robotdashboard -r limit=10,tag=nightly # keep 10 newest 'nightly' runs, leave others
+robotdashboard -r limit=10,tag=nightly,tag=prod # scope to multiple tags
+robotdashboard -r age=10d # remove runs OLDER than 10 days. (y)ear/(d)ay/(h)our/(m)inute/(s)econd supported
+robotdashboard -r age=-10d # remove runs YOUNGER than 10 days (note the leading minus)
 # Log data of removed runs in jsonl  
 robotdashboard -r limit=10 --logremoved "/myLogDir/removedRuns.jsonl"
 robotdashboard -r limit=10 --logremoved "run:suite:/myLogDir/removedRuns.jsonl"
@@ -128,8 +130,10 @@ robotdashboard -r limit=10 --logremoved run:keyword
 - Index ranges use `:` for ranges and `;` for lists.  
 - Quotation marks are required when spaces exist in identifiers.  
 - With limit=10 only the 10 most recent runs will be kept, all others will be removed.  
+- With limit=10,tag=nightly only the 10 most recent runs **carrying that tag** are kept; older tagged runs are removed and runs without the tag are left untouched. Add more `tag=` values to scope to multiple tags. Only `limit` supports this tag scoping — `tag` and `age` combined just run as two independent operations.  
 - With age=10d only runs _**older**_ than 10 days will be removed  
-- With age=-10d only runs _**younger**_ than 10 days will be removed  
+- With age=-10d (leading minus) only runs _**younger**_ than 10 days will be removed  
+- Supported age units: (y)ear, (d)ay, (h)our, (m)inute, (s)econd — e.g. `age=12h`, `age=-30m`  
 - Optional: `--logremoved` logs run data to a `.jsonl` file before removal.  
 - Format: `[types:]path` where types are colon-separated from `run`, `suite`, `test`, `keyword`, `all`.  
 - If no types are specified, defaults to `all` (runs, suites, tests and keywords).  

@@ -69,6 +69,47 @@ class ArgumentParser:
             print("  ERROR: Mixing --projectversion and version_ tags not supported")
             exit(2)
 
+    def _process_remove_runs(self, parts):
+        """Process and validate the comma-separated --removeruns parts.
+
+        Detects a scoped-retention combination ('limit' + 'tags') and rewrites
+        it into the internal 'limit=N;tag=...' form so the limit acts on the
+        tagged subset instead of running as two independent operations. This
+        lets users write the combo with the regular comma separator (e.g.
+        '-r "limit=10,tag=nightly"') instead of ';'.
+
+        Scope note (matches issue #309): only 'limit' can be scoped by tags.
+        'age' + 'tags' is intentionally NOT supported here — combining them
+        just runs as two independent operations, same as on main.
+
+        Rules:
+        - No tags, or tags without a 'limit' partner -> no combination, every
+          part stays independent (unchanged behavior, including 'age'+'tags').
+        - Only one 'limit' may be combined with tags (error otherwise).
+        """
+        limit_parts = [p for p in parts if p.startswith("limit=")]
+        tag_parts = [p for p in parts if p.startswith("tag=")]
+        other_parts = [
+            p for p in parts if not (p.startswith("limit=") or p.startswith("tag="))
+        ]
+
+        if not tag_parts or not limit_parts:
+            return parts
+        if len(limit_parts) > 1:
+            print("  ERROR: Only one 'limit' may be combined with 'tag(s)'.")
+            exit(3)
+
+        tag_values = [p.replace("tag=", "") for p in tag_parts]
+        limit_value = limit_parts[0].replace("limit=", "")
+        combo = limit_parts[0] + "".join(f";tag={value}" for value in tag_values)
+        print(
+            f"  INFO: Combining 'limit' with 'tag(s)' -> keeping the {limit_value} most recent "
+            f"run(s) tagged with [{', '.join(tag_values)}] and removing older matching runs "
+            f"(runs without these tags are left untouched)."
+        )
+        # other independent options (index/run_start/alias) run before the combo
+        return other_parts + [combo]
+
     def _check_argument_warnings(self, arguments, outputs, outputfolderpaths, use_logs, generate_dashboard, no_autoupdate, offline_dependencies):
         """Checks for argument combinations that are valid but likely unintended and prints warnings"""
         no_outputs = not outputs and not outputfolderpaths
@@ -275,6 +316,7 @@ class ArgumentParser:
                 "  • '-r run_start=2024-07-30 15:27:20.184407' -> remove specified run\n"
                 "  • '-r alias=some_alias,tag=prod'\n"
                 "  • '-r limit=10' -> keep only the 10 most recent runs\n"
+                "  • '-r limit=10,tag=nightly' -> keep 10 newest 'nightly' runs, leave others\n"
                 "  • '-r age=10d' -> remove runs older than 10 days\n"
                 "  • '-r age=-10d' -> remove runs younger than 10 days\n"
                 "  • (y)ear/(d)ay/(h)our/(m)inute/(s)econd supported\n"
@@ -531,11 +573,13 @@ class ArgumentParser:
         # handles the processing of --removeruns
         remove_runs = None
         if arguments.removeruns:
-            remove_runs = []
+            raw_parts = []
             for runs in arguments.removeruns:
-                parts = str(runs[0]).split(",")
-                for part in parts:
-                    remove_runs.append(part)
+                for part in str(runs[0]).split(","):
+                    part = part.strip()
+                    if part:
+                        raw_parts.append(part)
+            remove_runs = self._process_remove_runs(raw_parts)
 
         # handles the boolean handling of relevant arguments
         generate_dashboard = self._normalize_bool(

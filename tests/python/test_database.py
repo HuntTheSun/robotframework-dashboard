@@ -201,6 +201,87 @@ def test_remove_by_limit_higher_than_count_is_noop(populated_db):
     assert len(populated_db.get_data()["runs"]) == 1
 
 
+# --- remove_runs by limit scoped to tag(s) (issue #309) ---
+
+def _insert_run(db, xml, tags):
+    """Helper: insert a run from the given XML with the given tags."""
+    processor = OutputProcessor(xml)
+    processor.get_run_start()
+    data = processor.get_output_data()
+    db.insert_output_data(data, tags, None, xml, None)
+
+
+def _tags_of(runs):
+    return [run["tags"] for run in runs]
+
+
+def _run_starts(db):
+    return [run["run_start"] for run in db.get_data()["runs"]]
+
+
+def test_remove_by_limit_with_single_tag_keeps_newest_matching(db):
+    db.open_database()
+    # oldest -> newest; three "nightly" runs + one unrelated "release" run
+    _insert_run(db, OUTPUTS_DIR / "output-20250313-002134.xml", ["nightly"])
+    _insert_run(db, OUTPUTS_DIR / "output-20250313-002151.xml", ["nightly"])
+    _insert_run(db, OUTPUTS_DIR / "output-20250313-002222.xml", ["nightly"])
+    _insert_run(db, OUTPUTS_DIR / "output-20250313-002257.xml", ["release"])
+    starts_before = _run_starts(db)  # ordered oldest -> newest
+    db.remove_runs(["limit=2;tag=nightly"])
+    starts_after = _run_starts(db)
+    # oldest nightly removed; 2 newest nightly + release remain
+    assert len(starts_after) == 3
+    assert starts_before[0] not in starts_after  # oldest nightly removed
+    assert starts_before[3] in starts_after  # release untouched
+    db.close_database()
+
+
+def test_remove_by_limit_with_multiple_tags(db):
+    db.open_database()
+    _insert_run(db, OUTPUTS_DIR / "output-20250313-002134.xml", ["alpha"])
+    _insert_run(db, OUTPUTS_DIR / "output-20250313-002151.xml", ["beta"])
+    _insert_run(db, OUTPUTS_DIR / "output-20250313-002222.xml", ["alpha"])
+    _insert_run(db, OUTPUTS_DIR / "output-20250313-002257.xml", ["gamma"])
+    starts_before = _run_starts(db)
+    # candidates = union of alpha+beta = 3 oldest runs; keep 2 newest of those
+    db.remove_runs(["limit=2;tag=alpha;tag=beta"])
+    starts_after = _run_starts(db)
+    assert len(starts_after) == 3
+    assert starts_before[0] not in starts_after  # oldest alpha removed
+    assert starts_before[3] in starts_after  # gamma untouched
+    db.close_database()
+
+
+def test_remove_by_limit_with_tag_higher_than_count_is_noop(db):
+    db.open_database()
+    _insert_run(db, OUTPUTS_DIR / "output-20250313-002134.xml", ["nightly"])
+    _insert_run(db, OUTPUTS_DIR / "output-20250313-002151.xml", ["nightly"])
+    _insert_run(db, OUTPUTS_DIR / "output-20250313-002222.xml", ["other"])
+    console = db.remove_runs(["limit=5;tag=nightly"])
+    assert len(db.get_data()["runs"]) == 3
+    assert "WARNING" in console
+    db.close_database()
+
+
+def test_remove_by_limit_only_ignores_tags(db):
+    db.open_database()
+    _insert_run(db, OUTPUTS_DIR / "output-20250313-002134.xml", ["nightly"])
+    _insert_run(db, OUTPUTS_DIR / "output-20250313-002151.xml", ["release"])
+    _insert_run(db, OUTPUTS_DIR / "output-20250313-002222.xml", ["nightly"])
+    starts_before = _run_starts(db)
+    # no tag scope -> global limit, keep 1 newest regardless of tag
+    db.remove_runs(["limit=1"])
+    starts_after = _run_starts(db)
+    assert starts_after == [starts_before[-1]]  # only the newest remains
+    db.close_database()
+
+
+# NOTE: issue #309 only asked for tag-scoped retention on "limit"
+# (see the block above). "age" intentionally has no tag-scoped variant:
+# db.remove_runs(["age=10d", "tag=nightly"]) runs as two independent
+# operations, same as before this feature — no dedicated test needed here
+# beyond the existing plain "age=10d" / "tag=x" coverage.
+
 # --- list_runs ---
 
 def test_list_runs_empty_prints_warning(db, capsys):
