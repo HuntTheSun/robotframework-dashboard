@@ -73,6 +73,68 @@ function format_date_to_string(date) {
     return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 }
 
+// function to parse a run_start string ("YYYY-MM-DD HH:MM:SS[.ffffff][±HH:MM]") into a Date
+// timestamps without a timezone offset are interpreted as local time, returns null when unparsable
+function parse_run_start(run_start) {
+    if (!run_start) return null;
+    let value = String(run_start).trim();
+    let timezone = "";
+    const suffix = value.slice(-6);
+    if (/^[+-]\d{2}:\d{2}$/.test(suffix)) {
+        timezone = suffix;
+        value = value.slice(0, -6);
+    } else if (value.endsWith("Z")) {
+        timezone = "Z";
+        value = value.slice(0, -1);
+    }
+    // normalize to ISO-8601 with at most milliseconds, browsers handle microseconds inconsistently
+    value = value.replace(" ", "T").replace(/(\.\d{3})\d+$/, "$1");
+    const date = new Date(`${value}${timezone}`);
+    return isNaN(date.getTime()) ? null : date;
+}
+
+// function to format how long ago a run was executed, showing the 2 largest relevant units
+// e.g. "15 minutes ago", "3 hours 20 minutes ago", "4 days 2 hours ago"
+function format_relative_time(run_start, now = new Date()) {
+    const date = parse_run_start(run_start);
+    if (!date) return "";
+    const pluralize = (amount, unit) => `${amount} ${unit}${amount === 1 ? "" : "s"}`;
+    const totalSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+    if (totalSeconds < 0) return "just now"; // future timestamps (clock skew/timezone mismatch)
+    if (totalSeconds < 60) return `${pluralize(totalSeconds, "second")} ago`;
+    const totalMinutes = Math.floor(totalSeconds / 60);
+    if (totalMinutes < 60) return `${pluralize(totalMinutes, "minute")} ago`;
+    const totalHours = Math.floor(totalMinutes / 60);
+    if (totalHours < 24) {
+        const minutes = totalMinutes % 60;
+        return minutes
+            ? `${pluralize(totalHours, "hour")} ${pluralize(minutes, "minute")} ago`
+            : `${pluralize(totalHours, "hour")} ago`;
+    }
+    const days = Math.floor(totalHours / 24);
+    const hours = totalHours % 24;
+    return hours
+        ? `${pluralize(days, "day")} ${pluralize(hours, "hour")} ago`
+        : `${pluralize(days, "day")} ago`;
+}
+
+// function to format a run_start into a readable absolute timestamp (used for tooltips)
+// keeps the stored timezone offset when present and drops sub-second precision
+function format_run_start_exact(run_start) {
+    if (!run_start) return "";
+    let value = String(run_start).trim();
+    let timezone = "";
+    const suffix = value.slice(-6);
+    if (/^[+-]\d{2}:\d{2}$/.test(suffix)) {
+        timezone = ` ${suffix}`;
+        value = value.slice(0, -6);
+    } else if (value.endsWith("Z")) {
+        timezone = " +00:00";
+        value = value.slice(0, -1);
+    }
+    return `${value.replace("T", " ").replace(/\.\d+$/, "")}${timezone}`;
+}
+
 // function to transform an output.xml path to a log.html path
 function transform_file_path(filePath) {
     const normalizedPath = filePath.replace(/\\/g, "/");
@@ -271,6 +333,9 @@ export {
     space_to_camelcase,
     underscore_to_camelcase,
     format_date_to_string,
+    parse_run_start,
+    format_relative_time,
+    format_run_start_exact,
     transform_file_path,
     combine_paths,
     add_alert,

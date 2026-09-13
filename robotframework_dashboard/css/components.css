@@ -423,6 +423,22 @@
   height: 200px;
 }
 
+/* relative run time, pinned to the bottom right corner of a run card without
+   affecting the layout of the stats/duration columns next to the donut */
+.overview-card .card-body {
+  position: relative;
+}
+
+.run-card-run-time {
+  position: absolute;
+  right: 1rem;
+  bottom: 0.55rem;
+  color: var(--color-text-muted);
+  cursor: help;
+  font-size: 0.85em;
+  white-space: nowrap;
+}
+
 .overview-card {
   cursor: pointer;
   min-width: 300px;

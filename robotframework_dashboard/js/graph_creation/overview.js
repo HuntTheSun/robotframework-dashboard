@@ -3,6 +3,8 @@ import {
     compare_to_average,
     transform_file_path,
     format_duration,
+    format_relative_time,
+    format_run_start_exact,
     debounce,
     show_loading_overlay,
     hide_loading_overlay,
@@ -134,6 +136,7 @@ function generate_overview_card_html(
     isForOverview = false,
     isTotalStats = false,
     sectionPrefix = 'overview',
+    runStart = null,
 ) {
     const normalizedProjectVersion = projectVersion ?? "None";
     // ensure overview stats and project bar card ids unique
@@ -195,6 +198,11 @@ function generate_overview_card_html(
     const totalStatsHeader = isTotalStats ? `<div>Run Stats</div>` : '';
     const totalStatsAverage = isTotalStats ? `<div>Average Run Duration</div>` : '';
     const logLinkHtml = log_name ? `<a href="#" onclick="event.stopPropagation(); open_log_from_path('${log_path}'); return false;" target="_blank">${log_name}</a>` : '';
+    // relative run time (e.g. "3 hours 20 minutes ago") with the exact datetime as tooltip
+    const relativeRunTime = isTotalStats ? '' : format_relative_time(runStart);
+    const runTimeHtml = relativeRunTime
+        ? `<div class="run-card-run-time information" data-title="Run executed at ${format_run_start_exact(runStart)}">${relativeRunTime}</div>`
+        : '';
     return `
     <div class="col-4 overview-card" id="${projectNameForElementId}Card${idPostfix}" data-project-version="${normalizedProjectVersion}">
         <div class="card border-3 border-${status}">
@@ -234,6 +242,7 @@ function generate_overview_card_html(
                         </div>
                     </div>
                 </div>
+                ${runTimeHtml}
             </div>
         </div>
     </div>`;
@@ -724,6 +733,7 @@ function create_project_run_card(run, projectName, runIndex, runNumber, passRate
         isForOverview,
         isTotalStats,
         sectionPrefix,
+        run.run_start,
     )
     const existingRunCard = document.getElementById(`${projectNameForId}Card${runIndex}`);
     if (existingRunCard) {

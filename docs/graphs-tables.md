@@ -14,7 +14,7 @@ The Overview tab provides a high-level summary of all test runs across projects.
 
 | Section | Description |
 |---------|-------------|
-| **Latest Runs** | Displays the most recent run for each project as a card. Each card shows pass/fail/skip counts and duration, color-coded to indicate performance relative to previous runs. Clicking a project card filters the Overview to that project. |
+| **Latest Runs** | Displays the most recent run for each project as a card. Each card shows pass/fail/skip counts, duration (color-coded to indicate performance relative to previous runs) and how long ago the run was executed (hover it to see the exact run timestamp). Clicking a project card filters the Overview to that project. |
 | **Total Stats** | Shows aggregate statistics across all runs grouped by project: total passed, failed, skipped runs, average duration, and average pass rate. |
 
 ### Graphs

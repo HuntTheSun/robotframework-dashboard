@@ -10,6 +10,9 @@ import {
     underscore_to_camelcase,
     camelcase_to_underscore,
     format_date_to_string,
+    parse_run_start,
+    format_relative_time,
+    format_run_start_exact,
     transform_file_path,
     combine_paths,
     debounce,
@@ -177,6 +180,126 @@ describe('format_date_to_string', () => {
     it('handles midnight', () => {
         const date = new Date(2025, 11, 31, 0, 0, 0); // Dec 31, 2025 00:00:00
         expect(format_date_to_string(date)).toBe('2025-12-31 00:00:00');
+    });
+});
+
+
+describe('parse_run_start', () => {
+    it('parses a timestamp without timezone as local time', () => {
+        const date = parse_run_start('2025-01-15 09:05:03');
+        expect(date.getTime()).toBe(new Date(2025, 0, 15, 9, 5, 3).getTime());
+    });
+
+    it('parses microsecond precision by truncating to milliseconds', () => {
+        const date = parse_run_start('2025-01-15 09:05:03.123456');
+        expect(date.getTime()).toBe(new Date(2025, 0, 15, 9, 5, 3, 123).getTime());
+    });
+
+    it('honours a +HH:MM timezone offset', () => {
+        const date = parse_run_start('2025-01-15 09:05:03+02:00');
+        expect(date.toISOString()).toBe('2025-01-15T07:05:03.000Z');
+    });
+
+    it('honours a -HH:MM timezone offset', () => {
+        const date = parse_run_start('2025-01-15 09:05:03-05:00');
+        expect(date.toISOString()).toBe('2025-01-15T14:05:03.000Z');
+    });
+
+    it('honours a Z suffix', () => {
+        const date = parse_run_start('2025-01-15T09:05:03Z');
+        expect(date.toISOString()).toBe('2025-01-15T09:05:03.000Z');
+    });
+
+    it('returns null for empty or invalid input', () => {
+        expect(parse_run_start('')).toBeNull();
+        expect(parse_run_start(null)).toBeNull();
+        expect(parse_run_start(undefined)).toBeNull();
+        expect(parse_run_start('not a date')).toBeNull();
+    });
+});
+
+
+describe('format_relative_time', () => {
+    const now = new Date(2025, 0, 15, 12, 0, 0); // Jan 15, 2025 12:00:00 local time
+
+    it('formats seconds', () => {
+        expect(format_relative_time('2025-01-15 11:59:15', now)).toBe('45 seconds ago');
+    });
+
+    it('formats a single second', () => {
+        expect(format_relative_time('2025-01-15 11:59:59', now)).toBe('1 second ago');
+    });
+
+    it('formats minutes', () => {
+        expect(format_relative_time('2025-01-15 11:45:00', now)).toBe('15 minutes ago');
+    });
+
+    it('formats a single minute', () => {
+        expect(format_relative_time('2025-01-15 11:59:00', now)).toBe('1 minute ago');
+    });
+
+    it('formats hours and minutes', () => {
+        expect(format_relative_time('2025-01-15 08:40:00', now)).toBe('3 hours 20 minutes ago');
+    });
+
+    it('omits minutes on an exact hour boundary', () => {
+        expect(format_relative_time('2025-01-15 09:00:00', now)).toBe('3 hours ago');
+    });
+
+    it('formats a single hour and minute', () => {
+        expect(format_relative_time('2025-01-15 10:59:00', now)).toBe('1 hour 1 minute ago');
+    });
+
+    it('formats days and hours', () => {
+        expect(format_relative_time('2025-01-11 10:00:00', now)).toBe('4 days 2 hours ago');
+    });
+
+    it('omits hours on an exact day boundary', () => {
+        expect(format_relative_time('2025-01-14 12:00:00', now)).toBe('1 day ago');
+    });
+
+    it('rounds down to whole units', () => {
+        // 14 minutes and 59.877 seconds ago
+        expect(format_relative_time('2025-01-15 11:45:00.123456', now)).toBe('14 minutes ago');
+    });
+
+    it('takes the timezone offset into account', () => {
+        const utcNow = new Date('2025-01-15T12:00:00Z');
+        expect(format_relative_time('2025-01-15 14:45:00+03:00', utcNow)).toBe('15 minutes ago');
+    });
+
+    it('returns "just now" for future timestamps', () => {
+        expect(format_relative_time('2025-01-15 12:30:00', now)).toBe('just now');
+    });
+
+    it('returns an empty string for missing or invalid input', () => {
+        expect(format_relative_time('', now)).toBe('');
+        expect(format_relative_time(null, now)).toBe('');
+        expect(format_relative_time('not a date', now)).toBe('');
+    });
+});
+
+
+describe('format_run_start_exact', () => {
+    it('drops microseconds', () => {
+        expect(format_run_start_exact('2025-01-15 09:05:03.123456')).toBe('2025-01-15 09:05:03');
+    });
+
+    it('keeps the timezone offset', () => {
+        expect(format_run_start_exact('2025-01-15 09:05:03.123456+02:00')).toBe('2025-01-15 09:05:03 +02:00');
+    });
+
+    it('normalizes the ISO T separator', () => {
+        expect(format_run_start_exact('2025-01-15T09:05:03')).toBe('2025-01-15 09:05:03');
+    });
+
+    it('converts a Z suffix into an offset', () => {
+        expect(format_run_start_exact('2025-01-15T09:05:03Z')).toBe('2025-01-15 09:05:03 +00:00');
+    });
+
+    it('returns an empty string for missing input', () => {
+        expect(format_run_start_exact('')).toBe('');
+        expect(format_run_start_exact(null)).toBe('');
     });
 });
 

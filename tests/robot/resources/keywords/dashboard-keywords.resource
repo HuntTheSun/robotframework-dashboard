@@ -24,6 +24,9 @@ Open Dashboard
     New Context    colorScheme=dark    viewport={"width": 1920, "height": 1600}
     New Page    url=file:${ROOT_FOLDER}/robotdashboard_${DASHBOARD_INDEX}.html
     Wait For Elements State    selector=id=loading    state=hidden
+    # the relative run times on the overview cards ("2 hours ago") change as time passes,
+    # hide them so the screenshot comparisons stay deterministic
+    Add Style Tag    content=.run-card-run-time { visibility: hidden; }
     Click    selector=id=settings
     Fill Text    selector=id=toggleAnimationDuration    txt=0
     Click    selector=id=closeSettings
