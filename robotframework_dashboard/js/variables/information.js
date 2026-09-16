@@ -21,8 +21,6 @@ const informationMap = {
 - Average Pass Rate: mean pass rate across all runs
 See Settings > Overview for display options.`,
     "overviewLatestInformation": "Shows the latest run per project. Click a card to apply a project filter and open the dashboard.",
-    "overviewLatestPercentageInfo": "Duration color threshold: green if the run is at least X% faster than average, red if X% slower.",
-    "overviewLatestVersionsInfo": "Filter overview cards by project version. 'All' shows all versions.",
     "overviewLatestSortInfo": "Sort project cards by: Most Recent, Oldest, Most Failed, Most Skipped, or Most Passed.",
     "unifiedStatisticsInformation": `Unified view combining data from all projects into one dashboard.
 - Use the top filters to focus on specific projects, versions, or timeframes.
@@ -149,6 +147,8 @@ It helps identify tests with inconsistent execution times, which might be flaky 
 - A dot indicates the filter is active.`,
     "filterVersionsInformation": `Filter by project version. 'All' disables the filter.
 - 'None' covers runs without a version label.
+- Typing in the search box selects every matching version (e.g. "1." selects all 1.x).
+- The X in the search box clears it while keeping the current selection.
 - A dot indicates the filter is active.`,
     "filterFromDateInformation": "Show only runs that started on or after this date.",
     "filterFromTimeInformation": "Show only runs that started at or after this time (combined with From Date).",
@@ -186,8 +186,7 @@ Tip: avoid using Status and Only Changes together — the result will be empty.`
     "settingProjectsByName": "Group and display projects on the Overview by their Robot Framework run name.",
     "settingProjectsByTag": "Group and display projects on the Overview by custom project_ tags. See the docs for project tagging.",
     "settingPrefixes": "Show or hide the 'project_' prefix on tag-based project names on the Overview.",
-    "settingPercentageFilters": "Show the duration percentage threshold filter used to color-code run durations on the Overview.",
-    "settingVersionFilters": "Show the version filter for per-project version selection on the Overview.",
+    "settingOverviewDurationPercentage": "Threshold for duration color comparison on all project bars. A run is green if at least X% faster than average, red if X% slower.",
     "settingSortFilters": "Show the sort controls for ordering Overview project bars.",
     "settingBackgroundColor": "Main page background color for the current theme.",
     "settingCardColor": "Background color for graph cards and content panels.",

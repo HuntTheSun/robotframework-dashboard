@@ -115,6 +115,37 @@
   display: block;
 }
 
+.filter-search-wrapper {
+  position: relative;
+}
+
+.filter-search-wrapper .form-control {
+  padding-right: 1.5rem;
+}
+
+.filter-search-clear {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0 0.15rem 0;
+  border: none;
+  background: none;
+  color: inherit;
+  opacity: 0.6;
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.filter-search-clear:hover {
+  opacity: 1;
+}
+
 .filter-profile-bar {
   border-bottom: 1px solid var(--bs-border-color);
 }
