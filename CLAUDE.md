@@ -50,7 +50,7 @@ Use the project scripts — do **not** call `pytest`, `vitest`, `robot`, or `pab
 ## Pipeline
 
 ```
-1. PYTHON CLI        output.xml ─► OutputProcessor (robot.api ResultVisitor) ─► SQLite (runs/suites/tests/keywords)
+1. PYTHON CLI        output.xml ─► OutputProcessor (robot.api ResultVisitor) ─► SQLite (runs/suites/tests/keywords/exceptions)
 2. HTML TEMPLATE     database.get_data() ─► DashboardGenerator
                         ├─ DependencyProcessor: all js/ modules merged (topological sort) → one inline <script>
                         ├─ DependencyProcessor: all css/ files merged → one inline <style>
@@ -85,7 +85,7 @@ Frontend source: `robotframework_dashboard/js/` and `css/`. **There is no Node b
 
 ## Hard rules
 
-- **Never rename placeholder tokens** in templates (`<!-- placeholder_javascript -->`, `<!-- placeholder_css -->`, `<!-- placeholder_dependencies -->`, `"placeholder_runs"`, `"placeholder_suites"`, `"placeholder_tests"`, `"placeholder_keywords"`, `placeholder_json_config`). Replacement is string substitution.
+- **Never rename placeholder tokens** in templates (`<!-- placeholder_javascript -->`, `<!-- placeholder_css -->`, `<!-- placeholder_dependencies -->`, `"placeholder_runs"`, `"placeholder_suites"`, `"placeholder_tests"`, `"placeholder_keywords"`, `"placeholder_exceptions"`, `placeholder_json_config`). Replacement is string substitution.
 - **New JS module** → `import` it from an existing module. `DependencyProcessor` discovers files only through the import graph from `main.js`; there is no manual registry.
 - **Data always flows** parse → DB → HTML through `RobotDashboard` methods. Don't bypass it.
 - **Offline mode** reads `robotframework_dashboard/dependencies/`. When upgrading a library version in `dependencies.py`, update the local copy too.
