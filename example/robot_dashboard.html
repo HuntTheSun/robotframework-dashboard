@@ -3,18 +3,18 @@
 <head>
 <title>Webshop_Test_Dashboard</title>
 <!-- JS/CSS Dependencies -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
-<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
-<script src="https://unpkg.com/@sgratzl/chartjs-chart-boxplot@3.6.0/build/index.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chartjs-chart-matrix@2.0.1/dist/chartjs-chart-matrix.min.js"></script>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gridstack@12.2.1/dist/gridstack.min.css" />
-<script src="https://cdn.jsdelivr.net/npm/gridstack@12.2.1/dist/gridstack-all.min.js"></script>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/5.3.0/css/bootstrap.min.css" />
-<link rel="stylesheet" href="https://cdn.datatables.net/v/bs5/jq-3.7.0/dt-2.1.8/datatables.min.css" />
-<script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
-<script src="https://cdn.datatables.net/v/bs5/jq-3.7.0/dt-2.1.8/datatables.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@sgratzl/chartjs-chart-boxplot@4.4.5/build/index.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-chart-matrix@3.1.0/dist/chartjs-chart-matrix.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gridstack@13.3.0/dist/gridstack.min.css" />
+<script src="https://cdn.jsdelivr.net/npm/gridstack@13.3.0/dist/gridstack-all.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/5.3.8/css/bootstrap.min.css" />
+<link rel="stylesheet" href="https://cdn.datatables.net/v/bs5/dt-3.0.4/datatables.min.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.datatables.net/v/bs5/dt-3.0.4/datatables.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pako@3.0.2/dist/browser/pako_inflate.umd.min.js"></script>
 <!-- Custom CSS -->
 <style>
 /* === base.css === */
@@ -214,7 +214,6 @@ overflow: hidden;
 .move-down-section {
 cursor: pointer;
 }
-/* ── Info label + small icon (tooltip on label hover) ── */
 .info-label {
 display: inline-flex !important;
 align-items: center;
@@ -271,7 +270,6 @@ width: 24px;
 height: 24px;
 display: block;
 }
-/* ── Sidebar (off-canvas menu for overflowed items) ── */
 .sidenav-backdrop {
 position: fixed;
 top: 0; left: 0; right: 0; bottom: 0;
@@ -713,7 +711,6 @@ margin-right: 96px;
 .grid-stack-item-content.green-bg  { background-color: rgba(151, 189, 97, 0.2);  }
 .grid-stack-item-content.red-bg    { background-color: rgba(206, 62, 1, 0.2);    }
 .grid-stack-item-content.yellow-bg { background-color: rgba(254, 216, 79, 0.2);  }
-/* ─── Custom link widget ─────────────────────────────────────────────────── */
 /* Inner layout — mirrors stat-widget-inner */
 .link-widget-inner {
 position: relative;
@@ -786,7 +783,6 @@ max-width: 40%;
 max-width: calc(40% - 96px);
 margin-right: 96px;
 }
-/* ─────────────────────────────────────────────────────────────────────────── */
 .fullscreen .stat-value {
 font-size: 4rem;
 }
@@ -928,6 +924,12 @@ opacity: 0.5;
 .modal.dimmed {
 pointer-events: none;
 filter: brightness(0.5);
+}
+/* Bootstrap >= 5.3.1 no longer spaces the modal header itself (only its .btn-close gets
+margin-left: auto); the dashboard modals use their own button groups, so keep the
+title left and the buttons right */
+.modal-header {
+justify-content: space-between;
 }
 #runTag {
 max-height: 400px;
@@ -2684,7 +2686,6 @@ func.apply(this, args);
 }, delay);
 };
 }
-// Show a loading overlay on an individual graph's container
 function show_graph_loading(elementId) {
 const el = document.getElementById(elementId);
 if (!el) return;
@@ -2697,7 +2698,6 @@ overlay.className = 'graph-loading-overlay';
 overlay.innerHTML = '<div class="ball-grid-beat ball-grid-beat-sm"><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div></div>';
 container.appendChild(overlay);
 }
-// Hide the loading overlay from an individual graph's container
 function hide_graph_loading(elementId) {
 const el = document.getElementById(elementId);
 if (!el) return;
@@ -2706,7 +2706,6 @@ if (!container) return;
 const overlay = container.querySelector('.graph-loading-overlay');
 if (overlay) overlay.remove();
 }
-// Show loading overlays on multiple graphs, run updateFn, then hide overlays
 function update_graphs_with_loading(elementIds, updateFn) {
 elementIds.forEach(id => show_graph_loading(id));
 requestAnimationFrame(() => {
@@ -2729,35 +2728,45 @@ document.body.appendChild(overlay);
 }
 overlay.style.display = "flex";
 }
-// Hide the filter loading overlay
 function hide_loading_overlay() {
-const overlay = document.getElementById("filterLoadingOverlay");
-if (overlay) {
-$(overlay).fadeOut(200);
+fade_out(document.getElementById("filterLoadingOverlay"));
 }
+// Fade an element in or out with the Web Animations API.
+// A visible element is left alone by fade_in, a hidden one by fade_out, like jQuery did. The
+// element carries the "fading" class while the tween runs so the test-only idle hook can wait for it.
+function fade_in(element, duration = 200) {
+if (!element || getComputedStyle(element).display !== "none") return;
+element.style.display = ""; // also for a [hidden] element, so a later hidden = false shows it
+if (element.hidden) return;
+element.classList.add("fading");
+const animation = element.animate([{ opacity: 0 }, { opacity: 1 }], { duration });
+animation.finished.finally(() => element.classList.remove("fading"));
 }
-// Strips the ±HH:MM timezone offset suffix from a run_start string.
-// Returns the wall-clock portion (YYYY-MM-DD HH:MM:SS[.fff]) without the tz offset.
+function fade_out(element, duration = 200) {
+if (!element || getComputedStyle(element).display === "none") return;
+element.classList.add("fading");
+const animation = element.animate([{ opacity: 1 }, { opacity: 0 }], { duration, fill: "forwards" });
+animation.finished.then(() => {
+element.style.display = "none";
+animation.cancel(); // drop the forwards fill so the element is not stuck transparent when shown again
+}).finally(() => element.classList.remove("fading"));
+}
 function strip_tz_suffix(s) {
 const suffix = s.slice(-6);
 return /^[+-]\d{2}:\d{2}$/.test(suffix) ? s.slice(0, -6) : s;
 }
-// Generates a short random ID (safe across all modern browsers)
 function generate_id() {
 if (typeof crypto !== 'undefined' && crypto.randomUUID) {
 return crypto.randomUUID().replace(/-/g, '').slice(0, 12);
 }
 return Math.random().toString(36).slice(2, 14);
 }
-// Applies (or updates) the bg color class on the grid-stack-item-content of a widget item el
 function apply_bg_class(itemEl, bgColor) {
 const content = itemEl.querySelector('.grid-stack-item-content');
 if (!content) return;
 content.classList.remove('blue-bg', 'green-bg', 'red-bg', 'yellow-bg');
 if (bgColor) content.classList.add(bgColor);
 }
-// Builds the "Move to First" / "Move to Last" controls (and optional delete button) shared by
-// custom widgets/sections in edit mode — pinned together in the top-right corner
 function build_move_controls_html(deleteBtnHtml = '') {
 return `<div class="custom-widget-move-controls">
 <a class="move-to-first-graph information" data-title="Move to First"></a>
@@ -2765,7 +2774,6 @@ return `<div class="custom-widget-move-controls">
 ${deleteBtnHtml}
 </div>`;
 }
-// Populates a color picker container with button-per-color entries
 function fill_color_picker(picker, colors, defaultValue) {
 picker.innerHTML = '';
 for (const c of colors) {
@@ -2795,7 +2803,6 @@ const viewOptionClassMap = {
 "Stats": "stats-graph",
 "Radar": "radar-graph",
 };
-// Generate standard graph HTML template
 function _graphHtml(key, title, viewOptions, { hasVertical = false, titleId = true, viewClassOverrides = {} } = {}) {
 const controls = viewOptions.map(opt => {
 const cls = viewClassOverrides[opt] || viewOptionClassMap[opt];
@@ -2821,7 +2828,6 @@ ${controls}
 ${canvas}
 </div>`;
 }
-// Generate a single-value stat KPI widget HTML template
 function _statWidgetHtml(key, title, valueClass) {
 return `<div class="graph-header">
 <h6 id="${key}Title">${title}</h6>
@@ -2836,7 +2842,6 @@ return `<div class="graph-header">
 <div class="stat-value ${valueClass}" id="${key}Value"></div>
 </div>`;
 }
-// Generate standard table HTML template
 function _tableHtml(key, displayName) {
 return `<div class="col table-section" id="${key}Canvas">
 <div class="d-flex justify-content-between align-items-center mb-2">
@@ -2897,7 +2902,6 @@ viewOptions: ["Donut"],
 hasFullscreenButton: false,
 information: null,
 },
-// --- Run Stat Widgets (individual KPI cards) — managed via Add Stat Widget modal ---
 { key: "runStatExecutedRuns",     label: "Run Stat Executed Runs",     defaultType: "stats", viewOptions: ["Stats"], hasFullscreenButton: false, isStatWidget: true, defaultSize: { w: 2, h: 2 }, minSize: { w: 1, h: 1 }, html: _statWidgetHtml("runStatExecutedRuns",     "Executed Runs",      "blue-text") },
 { key: "runStatExecutedSuites",   label: "Run Stat Executed Suites",   defaultType: "stats", viewOptions: ["Stats"], hasFullscreenButton: false, isStatWidget: true, defaultSize: { w: 2, h: 2 }, minSize: { w: 1, h: 1 }, html: _statWidgetHtml("runStatExecutedSuites",   "Executed Suites",    "blue-text") },
 { key: "runStatExecutedTests",    label: "Run Stat Executed Tests",    defaultType: "stats", viewOptions: ["Stats"], hasFullscreenButton: false, isStatWidget: true, defaultSize: { w: 2, h: 2 }, minSize: { w: 1, h: 1 }, html: _statWidgetHtml("runStatExecutedTests",    "Executed Tests",     "blue-text") },
@@ -3383,7 +3387,6 @@ viewOptions: ["Bar", "Timeline"],
 hasFullscreenButton: true,
 html: _graphHtml("keywordExceptions", "Exceptions", ["Bar", "Timeline"], { hasVertical: true }),
 },
-// --- Suite Stat Widgets — managed via Add Stat Widget modal ---
 { key: "suiteStatExecuted",  label: "Suite Stat Executed",   defaultType: "stats", viewOptions: ["Stats"], hasFullscreenButton: false, isStatWidget: true, defaultSize: { w: 2, h: 2 }, minSize: { w: 1, h: 1 }, html: _statWidgetHtml("suiteStatExecuted",  "Executed Suites",  "blue-text") },
 { key: "suiteStatUnique",    label: "Suite Stat Unique",     defaultType: "stats", viewOptions: ["Stats"], hasFullscreenButton: false, isStatWidget: true, defaultSize: { w: 2, h: 2 }, minSize: { w: 1, h: 1 }, html: _statWidgetHtml("suiteStatUnique",    "Unique Suites",    "white-text") },
 { key: "suiteStatPassed",    label: "Suite Stat Passed",     defaultType: "stats", viewOptions: ["Stats"], hasFullscreenButton: false, isStatWidget: true, defaultSize: { w: 2, h: 2 }, minSize: { w: 1, h: 1 }, html: _statWidgetHtml("suiteStatPassed",    "Passed Suites",    "green-text") },
@@ -3392,7 +3395,6 @@ html: _graphHtml("keywordExceptions", "Exceptions", ["Bar", "Timeline"], { hasVe
 { key: "suiteStatPassRate",  label: "Suite Stat Pass Rate",  defaultType: "stats", viewOptions: ["Stats"], hasFullscreenButton: false, isStatWidget: true, defaultSize: { w: 2, h: 2 }, minSize: { w: 1, h: 1 }, html: _statWidgetHtml("suiteStatPassRate",  "Suite Pass Rate",  "green-text") },
 { key: "suiteStatTotalTime", label: "Suite Stat Total Time", defaultType: "stats", viewOptions: ["Stats"], hasFullscreenButton: false, isStatWidget: true, defaultSize: { w: 2, h: 2 }, minSize: { w: 1, h: 1 }, html: _statWidgetHtml("suiteStatTotalTime", "Total Suite Time", "white-text") },
 { key: "suiteStatAvgTime",   label: "Suite Stat Avg Time",   defaultType: "stats", viewOptions: ["Stats"], hasFullscreenButton: false, isStatWidget: true, defaultSize: { w: 2, h: 2 }, minSize: { w: 1, h: 1 }, html: _statWidgetHtml("suiteStatAvgTime",   "Avg Suite Time",   "white-text") },
-// --- Test Stat Widgets — managed via Add Stat Widget modal ---
 { key: "testStatExecuted",  label: "Test Stat Executed",   defaultType: "stats", viewOptions: ["Stats"], hasFullscreenButton: false, isStatWidget: true, defaultSize: { w: 2, h: 2 }, minSize: { w: 1, h: 1 }, html: _statWidgetHtml("testStatExecuted",  "Executed Tests",  "blue-text") },
 { key: "testStatUnique",    label: "Test Stat Unique",     defaultType: "stats", viewOptions: ["Stats"], hasFullscreenButton: false, isStatWidget: true, defaultSize: { w: 2, h: 2 }, minSize: { w: 1, h: 1 }, html: _statWidgetHtml("testStatUnique",    "Unique Tests",    "white-text") },
 { key: "testStatPassed",    label: "Test Stat Passed",     defaultType: "stats", viewOptions: ["Stats"], hasFullscreenButton: false, isStatWidget: true, defaultSize: { w: 2, h: 2 }, minSize: { w: 1, h: 1 }, html: _statWidgetHtml("testStatPassed",    "Passed Tests",    "green-text") },
@@ -3401,7 +3403,6 @@ html: _graphHtml("keywordExceptions", "Exceptions", ["Bar", "Timeline"], { hasVe
 { key: "testStatPassRate",  label: "Test Stat Pass Rate",  defaultType: "stats", viewOptions: ["Stats"], hasFullscreenButton: false, isStatWidget: true, defaultSize: { w: 2, h: 2 }, minSize: { w: 1, h: 1 }, html: _statWidgetHtml("testStatPassRate",  "Test Pass Rate",  "green-text") },
 { key: "testStatTotalTime", label: "Test Stat Total Time", defaultType: "stats", viewOptions: ["Stats"], hasFullscreenButton: false, isStatWidget: true, defaultSize: { w: 2, h: 2 }, minSize: { w: 1, h: 1 }, html: _statWidgetHtml("testStatTotalTime", "Total Test Time", "white-text") },
 { key: "testStatAvgTime",   label: "Test Stat Avg Time",   defaultType: "stats", viewOptions: ["Stats"], hasFullscreenButton: false, isStatWidget: true, defaultSize: { w: 2, h: 2 }, minSize: { w: 1, h: 1 }, html: _statWidgetHtml("testStatAvgTime",   "Avg Test Time",   "white-text") },
-// --- Keyword Stat Widgets — managed via Add Stat Widget modal ---
 { key: "keywordStatExecutions", label: "Keyword Stat Executions", defaultType: "stats", viewOptions: ["Stats"], hasFullscreenButton: false, isStatWidget: true, defaultSize: { w: 2, h: 2 }, minSize: { w: 1, h: 1 }, html: _statWidgetHtml("keywordStatExecutions", "Keyword Executions",  "blue-text") },
 { key: "keywordStatUnique",     label: "Keyword Stat Unique",     defaultType: "stats", viewOptions: ["Stats"], hasFullscreenButton: false, isStatWidget: true, defaultSize: { w: 2, h: 2 }, minSize: { w: 1, h: 1 }, html: _statWidgetHtml("keywordStatUnique",     "Unique Keywords",     "white-text") },
 { key: "keywordStatPassed",     label: "Keyword Stat Passed",     defaultType: "stats", viewOptions: ["Stats"], hasFullscreenButton: false, isStatWidget: true, defaultSize: { w: 2, h: 2 }, minSize: { w: 1, h: 1 }, html: _statWidgetHtml("keywordStatPassed",     "Passed Keywords",     "green-text") },
@@ -3697,7 +3698,6 @@ hide: [],
 },
 }
 };
-// Returns the run label for an item (run/suite/test/keyword) based on the current aliases mode.
 function get_run_label(item) {
 const mode = settings.show.aliases;
 if (mode === "alias") return item.run_alias;
@@ -3714,7 +3714,7 @@ const exceptions = decode_and_decompress("eJzNmttu4zYQhl9l4Jtk0UiZ4UESBeSiTY12ge
 function decode_and_decompress(base64Str) {
 if (base64Str.includes("placeholder_")) return [];
 const compressedData = Uint8Array.from(atob(base64Str), c => c.charCodeAt(0));
-const decompressedData = pako.inflate(compressedData, { to: 'string' });
+const decompressedData = pako.inflate(compressedData, { toText: true });
 return JSON.parse(decompressedData);
 }
 var unified_dashboard_title = 'Webshop_Test_Dashboard'
@@ -3818,14 +3818,11 @@ return v && typeof v === "object" && !Array.isArray(v);
 function merge_objects_base(local, defaults) {
 const merged = {};
 for (const key of new Set([...Object.keys(defaults), ...Object.keys(local)])) {
-// Remove keys missing from defaults
 if (!(key in defaults)) continue;
-// Add missing defaults
 if (!(key in local)) {
 merged[key] = structuredClone(defaults[key]);
 continue;
 }
-// Both exist
 if (isObject(local[key]) && isObject(defaults[key])) {
 merged[key] = merge_objects_base(local[key], defaults[key]);
 } else {
@@ -3914,11 +3911,8 @@ const arr = JSON.parse(result[key]);
 // keep only entries whose IDs still exist
 const filtered = arr.filter(item =>
 allowedGraphs.has(item.id) ||
-// Preserve saved positions for user-created custom stat widgets
 (typeof item.id === 'string' && item.id.startsWith('customStatWidget-')) ||
-// Preserve saved positions for user-created custom link widgets
 (typeof item.id === 'string' && item.id.startsWith('customLinkWidget-')) ||
-// Preserve saved positions for user-created custom section dividers
 (typeof item.id === 'string' && item.id.startsWith('customSection-'))
 );
 result[key] = JSON.stringify(filtered);
@@ -3953,10 +3947,10 @@ return part.charAt(0).toUpperCase() + part.slice(1);
 const currentState = key.split('.').reduce((o, i) => o[i], settings)
 if (firstLoad) {
 if (currentState !== undefined) {
-set_local_storage_item(key, currentState); // Ensure internal settings var is updated
+set_local_storage_item(key, currentState);
 document.getElementById(id).checked = currentState;
 } else {
-set_local_storage_item(key, state); // If no value exists yet, default to current 'state' and save it
+set_local_storage_item(key, state);
 document.getElementById(id).checked = state;
 }
 } else {
@@ -3982,7 +3976,7 @@ Object.keys(projects_by_tag).forEach(tagName => {
 projectNames.push(tagName);
 });
 }
-// Populate overviewSections used elsewhere)(
+// Populate overviewSections used elsewhere
 projectNames.forEach(name => overviewSections.push(name));
 const isSameRef = settings.view.overview.sections.show === overviewSections;
 const currentShow = isSameRef ? [...staticSections] : settings.view.overview.sections.show;
@@ -4088,7 +4082,7 @@ runStart = event.chart.data.labels[index]
 // Match against filteredRuns: its run_start has been timezone-converted/stripped to
 // match what the chart actually displays. Falling back to the original `runs` global
 // (UTC strings) breaks when the user has the "convert to local timezone" toggle on,
-// since the chart label no longer equals the UTC run_start. See issue #311.
+// since the chart label no longer equals the UTC run_start.
 var output = filteredRuns.find(run => run.run_start.slice(0, 19) === runStart.slice(0, 19))
 if (!output) { output = filteredRuns.find(run => get_run_label(run) === runStart) }
 // Fallback to the raw runs array for safety (e.g. if the run was filtered out)
@@ -4188,7 +4182,6 @@ return `${transform_file_path(path)}#${id.id}`
 }
 // === graph_config.js ===
 // function to retrieve the required graph config for chartjs, based on the different type of graphs
-// Generate a Chart.js config object based on the graph type and data
 function get_graph_config(graphType, graphData, graphTitle, xTitle, yTitle, dataSets = true) {
 if (dataSets && graphType === "line") {
 graphData = { datasets: graphData };
@@ -4217,6 +4210,12 @@ text: graphTitle,
 },
 datalabels: {
 display: false,
+},
+// Chart.js >= 4.5 switches its automatic dataset palette off as soon as the global
+// borderColor/backgroundColor defaults are changed, which theme.js does for the dark
+// theme; keep the palette for datasets that carry no colors of their own (line graphs)
+colors: {
+forceOverride: !(graphData.datasets ?? []).some((dataset) => dataset.borderColor || dataset.backgroundColor),
 },
 },
 };
@@ -4695,10 +4694,10 @@ selectedTagSetting = ''
 const selectedTags = Array.from(tagElements)
 .filter(tagElement => tagElement.checked)
 .map(tagElement => tagElement.id.replace(/^runTagCheckBox/, ""));
-if (selectedTags.includes("All")) { // If "All" is selected, return all runs (no filter)
+if (selectedTags.includes("All")) {
 return runs;
 }
-if (selectedTags.length === 0) { // If no tags are selected, return an empty list
+if (selectedTags.length === 0) {
 return [];
 }
 return runs.filter(run => {
@@ -4739,7 +4738,6 @@ return checkedValues.has(effectiveValue);
 }
 return filteredRuns;
 }
-// Parse "key=value:key2=value2" string → { key: value, key2: value2 }
 function parse_custom_filters(cfStr) {
 if (!cfStr) return {};
 const result = {};
@@ -4751,7 +4749,6 @@ result[part.slice(0, eq).trim()] = part.slice(eq + 1).trim();
 });
 return result;
 }
-// Collect all unique custom filter dimensions and their values from all runs
 function collect_custom_filter_dimensions() {
 const dimensions = {};
 for (const run of runs) {
@@ -4785,14 +4782,14 @@ const fromDate = document.getElementById("fromDate").value;
 const fromTime = document.getElementById("fromTime").value;
 const toDate = document.getElementById("toDate").value;
 const toTime = document.getElementById("toTime").value;
-if (!fromDate || !fromTime || !toDate || !toTime) { // Return all runs if any date/time values are missing
+if (!fromDate || !fromTime || !toDate || !toTime) {
 return runs;
 }
 const fromDateTime = new Date(`${fromDate} ${fromTime}:00`);
 const toDateTime = new Date(`${toDate} ${toTime}:00`);
-if (fromDateTime > toDateTime) { // Check for valid date range
+if (fromDateTime > toDateTime) {
 alert("Filter error: The selected from date + time is later than your selected to date + time. Date filter has not been applied!");
-return runs;  // Return all runs if invalid range
+return runs;
 }
 return runs.filter(run => {
 // When not converting timezones, strip any timezone offset so the run_start is treated
@@ -4810,23 +4807,23 @@ function filter_amount(filteredRuns) {
 var selectedAmount = document.getElementById("amount").value;
 // Handle weird selectedAmountValues:
 if (selectedAmount == "") {
-$("#amount").val(10).trigger("change.amount");
+document.getElementById("amount").value = 10;
 selectedAmount = document.getElementById("amount").value;
 }
 if (selectedAmount > runs.length) {
-$("#amount").val(runs.length).trigger("change.amount");
+document.getElementById("amount").value = runs.length;
 selectedAmount = document.getElementById("amount").value;
 }
 if (selectedAmount < 0) {
-$("#amount").val(0).trigger("change.amount");
+document.getElementById("amount").value = 0;
 selectedAmount = document.getElementById("amount").value;
 }
 if (selectedAmount.includes(",")) {
-$("#amount").val(selectedAmount.split(",")[0]).trigger("change.amount");
+document.getElementById("amount").value = selectedAmount.split(",")[0];
 selectedAmount = document.getElementById("amount").value;
 }
 if (selectedAmount.includes(".")) {
-$("#amount").val(selectedAmount.split(".")[0]).trigger("change.amount");
+document.getElementById("amount").value = selectedAmount.split(".")[0];
 selectedAmount = document.getElementById("amount").value;
 }
 filteredAmount = filteredRuns.length
@@ -4848,10 +4845,8 @@ return filteredData
 }
 // function to filter suites/tests/keywords based on the already filtered runs
 function filter_data(data) {
-// Step 1: Only include entries that match filteredRuns
 const validRunStarts = filteredRuns.map(v => v.run_start);
 let filteredData = data.filter(v => validRunStarts.includes(v.run_start));
-// Step 2: Check if the first element has an "owner" key
 if (filteredData.length > 0 && "owner" in filteredData[0]) {
 const libraries = settings.libraries || {};
 filteredData = filteredData.filter(item => {
@@ -5002,7 +4997,6 @@ function setup_keywords_in_select() {
 const keywordSelect = document.getElementById("keywordSelect");
 keywordSelect.innerHTML = "";
 const useLibraryNames = settings?.switch?.useLibraryNames === true;
-// Build display names depending on the setting
 const keywordNames = [
 ...new Set(
 filteredKeywords.map(keyword =>
@@ -5012,11 +5006,9 @@ useLibraryNames && keyword.owner
 )
 )
 ].sort();
-// Add options to select
 keywordNames.forEach(keywordName => {
 keywordSelect.options.add(new Option(keywordName, keywordName));
 });
-// Optionally select the last one
 if (keywordNames.length > 0) {
 keywordSelect.selectedIndex = keywordNames.length - 1;
 }
@@ -5056,7 +5048,6 @@ const wallClocks = runs.map(run => {
 const rs = run.run_start;
 const suffix = rs.slice(-6);
 const hasTz = /^[+-]\d{2}:\d{2}$/.test(suffix);
-// Take only YYYY-MM-DD HH:MM:SS (first 19 chars)
 return hasTz ? rs.slice(0, 19) : rs.slice(0, 19);
 });
 wallClocks.sort();
@@ -5116,7 +5107,7 @@ function setup_runtags_in_select_filter_buttons() {
 const tags = new Set();
 runs.forEach(run => {
 run.tags.split(",").forEach(tag => {
-if (tag) { // Avoid adding empty tags
+if (tag) {
 tags.add(tag);
 }
 });
@@ -5184,7 +5175,6 @@ setup_filter_active_indicator(allVersionsCheckBox, filterVersionSelectedIndicato
 setup_filter_checkbox_subfilter("projectVersionCheckBoxes", true);
 setup_filter_checkbox_handler_listeners(projectVersionList, allVersionsCheckBox, filterVersionSelectedIndicatorId);
 }
-// Returns the direct child paths of parentPath from the raw suites data
 function get_suite_path_children(parentPath) {
 const isRoot = !parentPath || parentPath === "All";
 const depth = isRoot ? 0 : parentPath.split(".").length;
@@ -5201,14 +5191,12 @@ childPaths.add(parts.slice(0, depth + 1).join("."));
 }
 return [...childPaths].sort();
 }
-// Render the suite path breadcrumb + child buttons for the given path and wire click handlers
 function setup_suite_path_navigator(path) {
 const normalized = (!path || path === "") ? "All" : path;
 document.getElementById("suitePathValue").value = normalized;
 // Active indicator — shown whenever a real path is selected
 const indicator = document.getElementById("filterSuitePathSelectedIndicator");
 if (indicator) indicator.style.display = normalized === "All" ? "none" : "";
-// Breadcrumb
 const breadcrumbEl = document.getElementById("suitePathBreadcrumb");
 if (normalized === "All") {
 breadcrumbEl.innerHTML = `<span class="text-muted">All</span>`;
@@ -5228,7 +5216,6 @@ breadcrumbEl.querySelectorAll(".suite-path-nav-link").forEach(el => {
 el.addEventListener("click", () => setup_suite_path_navigator(el.dataset.path));
 });
 }
-// Child buttons
 const childrenEl = document.getElementById("suitePathChildren");
 const children = get_suite_path_children(normalized);
 if (children.length === 0) {
@@ -5242,7 +5229,6 @@ childrenEl.querySelectorAll(".suite-path-child-btn").forEach(btn => {
 btn.addEventListener("click", () => setup_suite_path_navigator(btn.dataset.path));
 });
 }
-// Show/hide the filter row
 document.getElementById("suitePathFilter").hidden = suites.length === 0;
 }
 // Run-level part of the suite path filter: removes runs that have no suite matching the path.
@@ -5474,16 +5460,13 @@ document.getElementById("projectVersionInputItemAll").checked = false;
 projectVersionList.querySelector(`input[value="${version}"]`).checked = true;
 update_filter_active_indicator("projectVersionInputItemAll", "filterVersionSelectedIndicator");
 }
-// ============ Filter Profiles ============
 // Track the currently active profile name (null if none applied)
 let activeProfileName = null;
 // Snapshot of the filter state at dashboard load time (used to determine checkbox defaults when creating a profile)
 let defaultFilters = null;
-// Capture the current filter state as the baseline default (called once after filters are initialized)
 function capture_default_filters() {
 defaultFilters = capture_current_filters();
 }
-// Returns true when the current value of a single filter key differs from the default snapshot
 function filter_key_differs_from_default(key) {
 if (!defaultFilters) return false;
 const current = capture_current_filters();
@@ -5505,8 +5488,6 @@ return false;
 }
 return String(current[key] ?? '') !== String(defaultFilters[key] ?? '');
 }
-// Returns an object mapping each profile checkbox id to whether it should be checked
-// (i.e. the corresponding filter(s) currently differ from the default state)
 function compute_profile_check_states() {
 const checkKeyMap = {
 profileCheckRuns: ['runs'],
@@ -5526,30 +5507,21 @@ result[checkId] = keys.some(key => filter_key_differs_from_default(key));
 }
 return result;
 }
-// Read the current state of all filter controls into a plain object
 function capture_current_filters() {
 const profile = {};
-// Runs select
 profile.runs = document.getElementById("runs").value;
-// Run tags checkboxes
 const tagInputs = document.getElementById("runTag").querySelectorAll("input.form-check-input");
 profile.runTags = Array.from(tagInputs).map(el => ({ id: el.id.replace(/^runTagCheckBox/, ""), checked: el.checked }));
 profile.tagMode = document.getElementById("tagMode")?.value ?? "AND";
-// Project version checkboxes
 const versionInputs = document.getElementById("projectVersionList").querySelectorAll("input.form-check-input");
 profile.projectVersions = Array.from(versionInputs).map(el => ({ value: el.value, checked: el.checked }));
-// Date/time
 profile.fromDate = document.getElementById("fromDate").value;
 profile.fromTime = document.getElementById("fromTime").value;
 profile.toDate = document.getElementById("toDate").value;
 profile.toTime = document.getElementById("toTime").value;
-// Metadata
 profile.metadata = document.getElementById("metadata").value;
-// Amount
 profile.amount = document.getElementById("amount").value;
-// Suite path
 profile.suitePath = document.getElementById("suitePathValue").value;
-// Custom filters (one entry per dimension)
 const dimensions = collect_custom_filter_dimensions();
 if (Object.keys(dimensions).length > 0) {
 profile.customFilters = {};
@@ -5565,7 +5537,6 @@ profile.customFilterModes[dimName] = modeEl ? modeEl.value : "OR";
 }
 return profile;
 }
-// Build a profile object from current filters, filtered by which checkboxes are checked
 function build_profile_from_checks() {
 const full = capture_current_filters();
 const profile = {};
@@ -5591,7 +5562,6 @@ profile[keys] = full[keys];
 }
 }
 }
-// Handle dynamic custom filter dimensions
 const dimensions = collect_custom_filter_dimensions();
 const customFiltersResult = {};
 for (const dimName of Object.keys(dimensions)) {
@@ -5611,7 +5581,6 @@ profile.customFilterModes = customFilterModesResult;
 }
 return profile;
 }
-// Compare two profile objects for equality (only keys present in the saved profile)
 function profiles_match(saved, current) {
 for (const key of Object.keys(saved)) {
 const s = saved[key];
@@ -5627,7 +5596,6 @@ if (String(s) !== String(c)) return false;
 }
 return true;
 }
-// Find the name of a saved profile that exactly matches the current filters
 function find_matching_profile() {
 const profiles = load_filter_profiles();
 const current = capture_current_filters();
@@ -5636,7 +5604,6 @@ if (profiles_match(saved, current)) return name;
 }
 return null;
 }
-// Update the profile select display to reflect current state
 function update_profile_select_display() {
 const selectEl = document.getElementById("selectFilterProfile");
 const selectInner = selectEl.querySelector("select");
@@ -5661,11 +5628,9 @@ dot.style.display = "none";
 updateBtn.style.display = "none";
 }
 }
-// Clear the active profile tracking
 function clear_active_profile() {
 activeProfileName = null;
 }
-// Update the active profile with current filter values
 function update_active_profile() {
 if (!activeProfileName) return;
 const profileData = capture_current_filters();
@@ -5680,7 +5645,6 @@ updated[key] = profileData[key];
 save_filter_profile_to_storage(activeProfileName, updated);
 update_profile_select_display();
 }
-// Apply a saved profile's filter values to the filter controls
 function apply_filter_profile(profile, name) {
 if (name) activeProfileName = name;
 if (profile.runs !== undefined) {
@@ -5762,23 +5726,19 @@ if (runsIndicator)
 runsIndicator.style.display =
 runsVal && runsVal !== "All" ? "inline-block" : "none";
 }
-// Load filter profiles from settings (cumulative — never deletes existing ones)
 function load_filter_profiles() {
 return settings.filterProfiles || {};
 }
-// Save a filter profile to settings/localStorage (cumulative merge)
 function save_filter_profile_to_storage(name, profileData) {
 const profiles = load_filter_profiles();
 profiles[name] = profileData;
 set_local_storage_item("filterProfiles", profiles);
 }
-// Delete a filter profile from settings/localStorage
 function delete_filter_profile(name) {
 const profiles = load_filter_profiles();
 delete profiles[name];
 set_local_storage_item("filterProfiles", profiles);
 }
-// Populate the profile dropdown list from settings
 function populate_filter_profile_select() {
 const list = document.getElementById("filterProfileList");
 const profiles = load_filter_profiles();
@@ -5796,14 +5756,12 @@ li.innerHTML = `<span class="filter-profile-apply flex-grow-1" data-profile="${n
 list.appendChild(li);
 }
 }
-// Show the profile editor checkboxes and name input
 function enter_profile_edit_mode() {
 document.getElementById("addFilterProfile").style.display = "none";
 document.getElementById("cancelFilterProfile").style.display = "";
 document.getElementById("filterProfileEditorInline").style.display = "";
 document.getElementById("filterProfileEditorInline").classList.add("d-flex");
 document.getElementById("filterProfileName").value = "";
-// Show all profile checkboxes
 document.querySelectorAll(".filter-profile-check").forEach(el => {
 el.style.display = "";
 });
@@ -5814,7 +5772,6 @@ const el = document.getElementById(id);
 if (el) el.checked = checked;
 }
 }
-// Hide the profile editor checkboxes and name input
 function exit_profile_edit_mode() {
 document.getElementById("cancelFilterProfile").style.display = "none";
 document.getElementById("addFilterProfile").style.display = "";
@@ -5833,7 +5790,6 @@ el.style.display = "none";
 //   runs / metadata          : keep if identical, otherwise "All"
 function merge_two_profiles(profileA, profileB) {
 const result = {};
-// runs: same → keep; otherwise "All"
 if (profileA.runs !== undefined && profileB.runs !== undefined) {
 result.runs = profileA.runs === profileB.runs ? profileA.runs : "All";
 } else if (profileA.runs !== undefined) {
@@ -5841,7 +5797,6 @@ result.runs = profileA.runs;
 } else if (profileB.runs !== undefined) {
 result.runs = profileB.runs;
 }
-// runTags: union of checked states
 if (profileA.runTags !== undefined || profileB.runTags !== undefined) {
 const tagsA = profileA.runTags || [];
 const tagsB = profileB.runTags || [];
@@ -5850,7 +5805,6 @@ tagsA.forEach(t => { merged[t.id] = t.checked; });
 tagsB.forEach(t => { merged[t.id] = merged[t.id] || t.checked; });
 result.runTags = Object.entries(merged).map(([id, checked]) => ({ id, checked }));
 }
-// tagMode: most permissive wins (OR > AND > NOT)
 if (profileA.tagMode !== undefined || profileB.tagMode !== undefined ||
 profileA.useOrTags !== undefined || profileB.useOrTags !== undefined) {
 const permissiveness = { "OR": 2, "AND": 1, "NOT": 0 };
@@ -5859,7 +5813,6 @@ const modeA = profileA.tagMode ?? (profileA.useOrTags ? "OR" : "AND");
 const modeB = profileB.tagMode ?? (profileB.useOrTags ? "OR" : "AND");
 result.tagMode = (permissiveness[modeA] ?? 1) >= (permissiveness[modeB] ?? 1) ? modeA : modeB;
 }
-// projectVersions: union of checked states
 if (profileA.projectVersions !== undefined || profileB.projectVersions !== undefined) {
 const versA = profileA.projectVersions || [];
 const versB = profileB.projectVersions || [];
@@ -5868,7 +5821,6 @@ versA.forEach(v => { merged[v.value] = v.checked; });
 versB.forEach(v => { merged[v.value] = merged[v.value] || v.checked; });
 result.projectVersions = Object.entries(merged).map(([value, checked]) => ({ value, checked }));
 }
-// fromDate + fromTime: take the earlier combination (widest horizon)
 if (profileA.fromDate !== undefined && profileB.fromDate !== undefined) {
 const dtA = `${profileA.fromDate}T${profileA.fromTime || "00:00"}`;
 const dtB = `${profileB.fromDate}T${profileB.fromTime || "00:00"}`;
@@ -5882,7 +5834,6 @@ if (profileA.fromTime !== undefined) result.fromTime = profileA.fromTime;
 result.fromDate = profileB.fromDate;
 if (profileB.fromTime !== undefined) result.fromTime = profileB.fromTime;
 }
-// toDate + toTime: take the later combination (widest horizon)
 if (profileA.toDate !== undefined && profileB.toDate !== undefined) {
 const dtA = `${profileA.toDate}T${profileA.toTime || "23:59"}`;
 const dtB = `${profileB.toDate}T${profileB.toTime || "23:59"}`;
@@ -5896,7 +5847,6 @@ if (profileA.toTime !== undefined) result.toTime = profileA.toTime;
 result.toDate = profileB.toDate;
 if (profileB.toTime !== undefined) result.toTime = profileB.toTime;
 }
-// metadata: same → keep; otherwise "All"
 if (profileA.metadata !== undefined && profileB.metadata !== undefined) {
 result.metadata = profileA.metadata === profileB.metadata ? profileA.metadata : "All";
 } else if (profileA.metadata !== undefined) {
@@ -5904,7 +5854,6 @@ result.metadata = profileA.metadata;
 } else if (profileB.metadata !== undefined) {
 result.metadata = profileB.metadata;
 }
-// amount: take the larger value
 if (profileA.amount !== undefined && profileB.amount !== undefined) {
 result.amount = String(Math.max(Number(profileA.amount), Number(profileB.amount)));
 } else if (profileA.amount !== undefined) {
@@ -5912,13 +5861,11 @@ result.amount = profileA.amount;
 } else if (profileB.amount !== undefined) {
 result.amount = profileB.amount;
 }
-// suitePath: keep if both profiles agree, otherwise reset to "All"
 if (profileA.suitePath !== undefined || profileB.suitePath !== undefined) {
 const a = profileA.suitePath ?? "All";
 const b = profileB.suitePath ?? "All";
 result.suitePath = a === b ? a : "All";
 }
-// customFilters: per-dimension union of checked states
 if (profileA.customFilters !== undefined || profileB.customFilters !== undefined) {
 const cfA = profileA.customFilters || {};
 const cfB = profileB.customFilters || {};
@@ -5934,7 +5881,6 @@ mergedCF[dim] = Object.entries(merged).map(([value, checked]) => ({ value, check
 }
 result.customFilters = mergedCF;
 }
-// customFilterModes: per-dimension mode — most permissive wins (OR > AND > NOT)
 if (profileA.customFilterModes !== undefined || profileB.customFilterModes !== undefined) {
 const modesA = profileA.customFilterModes || {};
 const modesB = profileB.customFilterModes || {};
@@ -6584,10 +6530,8 @@ countMap[ds.label] = (countMap[ds.label] || 0) + 1;
 labelsToKeep = new Set(Object.keys(countMap).filter(label => {
 // Only keep tests that appear once (no status changes)
 if (countMap[label] !== 1) return false;
-// Find the dataset for this label to check its status
 const dataset = finalDatasets.find(ds => ds.label === label);
 if (!dataset) return false;
-// Check if the dataset's status matches testNoChanges
 const isPassedTest = dataset.backgroundColor === passedBackgroundColor;
 const isFailedTest = dataset.backgroundColor === failedBackgroundColor;
 const isSkippedTest = dataset.backgroundColor === skippedBackgroundColor;
@@ -6997,14 +6941,12 @@ const keywordSelect = document.getElementById("keywordSelect").value;
 const useLibraryNames = settings?.switch?.useLibraryNames === true;
 const limit = inFullscreen && inFullscreenGraph.includes("Duration") ? 100 : 30;
 const should_include = (value) => {
-// --- keyword filtering ---
 if (dataType === "keyword") {
 const keywordKey = useLibraryNames && value.owner
 ? `${value.owner}.${value.name}`
 : value.name;
 if (keywordKey !== keywordSelect) return false;
 }
-// --- suite/test filtering ---
 if (exclude_from_suite_data(dataType, value)) return false;
 if (settings.switch.suitePathsTestSection) {
 if (dataType === "test" && suiteSelectTests !== "All" &&
@@ -7367,7 +7309,6 @@ byTime[timeKey] = { ...meta };
 }
 return { byLabel, byTime };
 }
-// Look up metadata from Chart.js tooltip items (works for bar, line, scatter charts)
 function lookup_tooltip_meta(meta, tooltipItems) {
 if (!tooltipItems || !tooltipItems.length) return null;
 const item = tooltipItems[0];
@@ -7395,7 +7336,6 @@ if (meta.skipped === 1 && meta.passed === 0 && meta.failed === 0) return 'SKIP';
 return `Passed: ${meta.passed}, Failed: ${meta.failed}, Skipped: ${meta.skipped}`;
 }
 // === chart_factory.js ===
-// Generic chart create function - replaces boilerplate create_X_graph() pattern
 function create_chart(chartId, buildConfigFn, addLogClickHandler = true) {
 if (window[chartId]) window[chartId].destroy();
 window[chartId] = new Chart(chartId, buildConfigFn());
@@ -7405,7 +7345,6 @@ open_log_from_label(window[chartId], event);
 });
 }
 }
-// Generic chart update function - replaces boilerplate update_X_graph() pattern
 function update_chart(chartId, buildConfigFn, addLogClickHandler = true) {
 if (!window[chartId]) { create_chart(chartId, buildConfigFn, addLogClickHandler); return; }
 const config = buildConfigFn();
@@ -7414,7 +7353,6 @@ window[chartId].options = config.options;
 window[chartId].update();
 }
 // === run.js ===
-// build functions
 function _build_run_statistics_config() {
 const data = get_statistics_graph_data("run", settings.graphTypes.runStatisticsGraphType, filteredRuns);
 const graphData = data[0]
@@ -7507,7 +7445,6 @@ callback: val => callbackData[val] || ''
 }
 return config;
 }
-// create functions
 function create_run_statistics_graph() { create_chart("runStatisticsGraph", _build_run_statistics_config); }
 function create_run_donut_graph() { create_chart("runDonutGraph", _build_run_donut_config, false); }
 function create_run_donut_total_graph() { create_chart("runDonutTotalGraph", _build_run_donut_total_config, false); }
@@ -7532,7 +7469,6 @@ update_run_stat_dom(data);
 }
 function create_run_duration_graph() { create_chart("runDurationGraph", _build_run_duration_config); }
 function create_run_heatmap_graph() { create_chart("runHeatmapGraph", _build_run_heatmap_config, false); }
-// update functions
 function update_run_statistics_graph() { update_chart("runStatisticsGraph", _build_run_statistics_config); }
 function update_run_donut_graph() { update_chart("runDonutGraph", _build_run_donut_config, false); }
 function update_run_donut_total_graph() { update_chart("runDonutTotalGraph", _build_run_donut_total_config, false); }
@@ -7766,7 +7702,6 @@ var foundValues = [];
 for (value of filteredData) {
 const compareKey = settings.switch.suitePathsTestSection ? value.full_name : value.name;
 if (compareKey == label && value.run_start == runStart) {
-// if (value.name == label && value.run_start == runStart) {
 foundValues.push(value);
 const runLabel = get_run_label(value);
 if (!run_labels.includes(runLabel)) { run_labels.push(runLabel) }
@@ -8008,7 +7943,6 @@ details: Object.fromEntries(details)
 }
 }
 // === config_helpers.js ===
-// Shared timeline scale/tooltip config used by most failed, flaky, and time consuming graphs
 function _apply_timeline_defaults(config, callbackData, pointMeta = null, dataType = null, callbackLookup = null) {
 const lookupFn = callbackLookup || ((val) => callbackData[val]);
 config.options.plugins.tooltip = {
@@ -8059,7 +7993,6 @@ open_log_file(event, chartElement, callbackData);
 };
 if (!settings.show.dateLabels) { config.options.scales.x.ticks.display = false; }
 }
-// Build config for "most failed" graphs (test/suite/keyword, regular and recent)
 function build_most_failed_config(graphKey, dataType, dataLabel, filteredData, isRecent) {
 const graphType = settings.graphTypes[`${graphKey}GraphType`];
 const data = get_most_failed_data(dataType, graphType, filteredData, isRecent);
@@ -8088,7 +8021,6 @@ config.options.scales.y.ticks.autoSkip = false;
 update_height(`${graphKey}Vertical`, config.data.labels.length, graphType);
 return config;
 }
-// Build config for "most flaky" graphs (test regular and recent)
 function build_most_flaky_config(graphKey, dataType, filteredData, ignoreSkipsVal, isRecent) {
 const graphType = settings.graphTypes[`${graphKey}GraphType`];
 const limit = inFullscreen && inFullscreenGraph === `${graphKey}Fullscreen` ? 50 : 10;
@@ -8110,7 +8042,6 @@ config.options.scales.y.ticks.autoSkip = false;
 update_height(`${graphKey}Vertical`, config.data.labels.length, graphType);
 return config;
 }
-// Build config for "most time consuming" / "most used" graphs (test/suite/keyword)
 function build_most_time_consuming_config(graphKey, dataType, dataLabel, filteredData, checkboxId, barYLabel = "Most Time Consuming", isMostUsed = false, formatDetail = null) {
 const onlyLastRun = document.getElementById(checkboxId).checked;
 const graphType = settings.graphTypes[`${graphKey}GraphType`];
@@ -8190,7 +8121,6 @@ update_height(`${graphKey}Vertical`, config.data.labels.length, graphType);
 return config;
 }
 // === suite.js ===
-// build functions
 function _build_suite_folder_donut_config(folder) {
 const data = get_donut_folder_graph_data("suite", filteredSuites, folder);
 const graphData = data[0]
@@ -8380,7 +8310,6 @@ return build_most_failed_config("suiteMostFailed", "suite", "Suite", _get_suite_
 function _build_suite_most_time_consuming_config() {
 return build_most_time_consuming_config("suiteMostTimeConsuming", "suite", "Suite", _get_suite_most_filtered_data(), "onlyLastRunSuite");
 }
-// create functions
 function create_suite_folder_donut_graph(folder) {
 const suiteFolder = document.getElementById("suiteFolder")
 suiteFolder.innerText = folder == "" || folder == undefined ? "All" : folder;
@@ -8402,7 +8331,6 @@ function create_suite_statistics_graph() { create_chart("suiteStatisticsGraph", 
 function create_suite_duration_graph() { create_chart("suiteDurationGraph", _build_suite_duration_config); }
 function create_suite_most_failed_graph() { create_chart("suiteMostFailedGraph", _build_suite_most_failed_config); }
 function create_suite_most_time_consuming_graph() { create_chart("suiteMostTimeConsumingGraph", _build_suite_most_time_consuming_config); }
-// update functions
 function update_suite_folder_donut_graph(folder) {
 const suiteFolder = document.getElementById("suiteFolder")
 suiteFolder.innerText = folder == "" || folder == undefined ? "All" : folder;
@@ -8612,7 +8540,6 @@ data: datasets
 };
 }
 // === test.js ===
-// build functions
 function _build_test_statistics_config() {
 const graphType = settings.graphTypes.testStatisticsGraphType || "timeline";
 if (graphType === "line") {
@@ -8926,7 +8853,6 @@ return build_most_failed_config("testRecentMostFailed", "test", "Test", _get_tes
 function _build_test_most_time_consuming_config() {
 return build_most_time_consuming_config("testMostTimeConsuming", "test", "Test", _get_test_most_filtered_data(), "onlyLastRunTest");
 }
-// create functions
 function create_test_statistics_graph() { create_chart("testStatisticsGraph", _build_test_statistics_config); }
 function create_test_duration_graph() { create_chart("testDurationGraph", _build_test_duration_config); }
 function create_test_messages_graph() { create_chart("testMessagesGraph", _build_test_messages_config); }
@@ -8936,7 +8862,6 @@ function create_test_recent_most_flaky_graph() { create_chart("testRecentMostFla
 function create_test_most_failed_graph() { create_chart("testMostFailedGraph", _build_test_most_failed_config); }
 function create_test_recent_most_failed_graph() { create_chart("testRecentMostFailedGraph", _build_test_recent_most_failed_config); }
 function create_test_most_time_consuming_graph() { create_chart("testMostTimeConsumingGraph", _build_test_most_time_consuming_config); }
-// update functions
 function update_test_statistics_graph() { update_chart("testStatisticsGraph", _build_test_statistics_config); }
 function update_test_duration_graph() { update_chart("testDurationGraph", _build_test_duration_config); }
 function update_test_messages_graph() { update_chart("testMessagesGraph", _build_test_messages_config); }
@@ -8971,7 +8896,6 @@ data.set(value.message, []);
 data.get(value.message).push(value);
 }
 const limit = inFullscreen && inFullscreenGraph.includes("keywordExceptions") ? 50 : 10;
-// Sort messages by total count descending
 const sortedData = [...data.entries()].sort((a, b) => {
 const totalB = b[1].reduce((sum, v) => sum + v.amount, 0);
 const totalA = a[1].reduce((sum, v) => sum + v.amount, 0);
@@ -9045,7 +8969,6 @@ return [graphData, runStartsArray, pointMeta];
 }
 }
 // === keyword.js ===
-// build functions
 function _build_keyword_statistics_config() {
 const data = get_statistics_graph_data("keyword", settings.graphTypes.keywordStatisticsGraphType, filteredKeywords);
 const graphData = data[0]
@@ -9173,7 +9096,6 @@ if (!settings.show.dateLabels) { config.options.scales.x.ticks.display = false }
 update_height("keywordExceptionsVertical", config.data.labels.length, settings.graphTypes.keywordExceptionsGraphType);
 return config;
 }
-// create functions
 function create_keyword_statistics_graph() { create_chart("keywordStatisticsGraph", _build_keyword_statistics_config); }
 function create_keyword_times_run_graph() { create_chart("keywordTimesRunGraph", _build_keyword_times_run_config); }
 function create_keyword_total_duration_graph() { create_chart("keywordTotalDurationGraph", _build_keyword_total_duration_config); }
@@ -9184,7 +9106,6 @@ function create_keyword_most_failed_graph() { create_chart("keywordMostFailedGra
 function create_keyword_most_time_consuming_graph() { create_chart("keywordMostTimeConsumingGraph", _build_keyword_most_time_consuming_config); }
 function create_keyword_most_used_graph() { create_chart("keywordMostUsedGraph", _build_keyword_most_used_config); }
 function create_keyword_exceptions_graph() { create_chart("keywordExceptionsGraph", _build_keyword_exceptions_config); }
-// update functions
 function update_keyword_statistics_graph() { update_chart("keywordStatisticsGraph", _build_keyword_statistics_config); }
 function update_keyword_times_run_graph() { update_chart("keywordTimesRunGraph", _build_keyword_times_run_config); }
 function update_keyword_total_duration_graph() { update_chart("keywordTotalDurationGraph", _build_keyword_total_duration_config); }
@@ -9207,7 +9128,6 @@ setVal('keywordStatAvgTimeValue',    format_duration(data.avgTime));
 }
 function update_keyword_stat_widgets() { create_keyword_stat_widgets(); }
 // === compare.js ===
-// build functions
 function _build_compare_statistics_config() {
 const graphData = get_compare_statistics_graph_data(filteredRuns);
 const config = get_graph_config("bar", graphData, "", "Run", "Amount");
@@ -9268,17 +9188,13 @@ if (!settings.show.dateLabels) { config.options.scales.x.ticks.display = false }
 update_height("compareTestsVertical", config.data.labels.length, "timeline");
 return config;
 }
-// create functions
 function create_compare_statistics_graph() { create_chart("compareStatisticsGraph", _build_compare_statistics_config, false); }
 function create_compare_suite_duration_graph() { create_chart("compareSuiteDurationGraph", _build_compare_suite_duration_config, false); }
 function create_compare_tests_graph() { create_chart("compareTestsGraph", _build_compare_tests_config); }
-// update functions
 function update_compare_statistics_graph() { update_chart("compareStatisticsGraph", _build_compare_statistics_config, false); }
 function update_compare_suite_duration_graph() { update_chart("compareSuiteDurationGraph", _build_compare_suite_duration_config, false); }
 function update_compare_tests_graph() { update_chart("compareTestsGraph", _build_compare_tests_config); }
 // === eventlisteners.js ===
-// ---- Merge profiles modal helpers ----
-// Render the per-field checkbox list for one side of the merge modal
 function render_merge_profile_settings(profile, side) {
 const rows = filterRows
 .filter(def => def.present(profile))
@@ -9296,7 +9212,6 @@ return rows.length
 ? rows.join('')
 : '<p class="text-muted small mb-0">No settings in this profile.</p>';
 }
-// Extract only the fields whose checkboxes are checked for a given side
 function get_checked_partial_profile(side, fullProfile) {
 const result = {};
 for (const def of filterRows) {
@@ -9309,7 +9224,6 @@ if (fullProfile[f] !== undefined) result[f] = fullProfile[f];
 }
 return result;
 }
-// Render the "Resulting Filters" preview section
 function render_merge_result_html(result) {
 if (!Object.keys(result).length) {
 return '<span class="text-muted small">Select profiles and settings above to preview.</span>';
@@ -9319,7 +9233,6 @@ const rows = filterRows
 .map(def => `<dt class="col-sm-3 small fw-semibold">${def.label}</dt><dd class="col-sm-9 small mb-1">${def.valueHtml(result)}</dd>`);
 return `<dl class="row mb-0">${rows.join('')}</dl>`;
 }
-// Recompute and re-render the preview whenever selections or checkboxes change
 function update_merge_result_preview() {
 const leftName = document.getElementById("mergeProfileLeft").value;
 const rightName = document.getElementById("mergeProfileRight").value;
@@ -9331,7 +9244,6 @@ const rightPartial = get_checked_partial_profile('right', rightFull);
 lastMergeResult = merge_two_profiles(leftPartial, rightPartial);
 document.getElementById("mergeResultPreview").innerHTML = render_merge_result_html(lastMergeResult);
 }
-// ---- end of merge profiles helpers ----
 function update_filters_button_indicator() {
 const indicator = document.getElementById("filtersActiveIndicator");
 if (!indicator) return;
@@ -9343,7 +9255,7 @@ indicator.style.display = anyActive ? "inline-block" : "none";
 function setup_filter_modal() {
 // eventlistener to catch the closing of the filter modal
 // Only recompute filtered data and update graphs in-place (no layout rebuild needed)
-$("#filtersModal").on("hide.bs.modal", function () {
+document.getElementById("filtersModal").addEventListener("hide.bs.modal", function () {
 show_loading_overlay();
 requestAnimationFrame(() => {
 requestAnimationFrame(() => {
@@ -9502,13 +9414,11 @@ update_filters_button_indicator();
 }
 }
 });
-// Update Profile button
 document.getElementById("updateFilterProfile").addEventListener("click", function () {
 update_active_profile();
 populate_filter_profile_select();
 add_alert(`Filter profile updated!`, "success");
 });
-// Merge Profiles button — populates and opens the merge modal
 document.getElementById("mergeFilterProfiles").addEventListener("click", function () {
 const profiles = settings.filterProfiles || {};
 const names = Object.keys(profiles).sort();
@@ -9536,7 +9446,6 @@ mergeModalEl.removeEventListener("hidden.bs.modal", cleanup);
 });
 mergeModal.show();
 });
-// Left / right profile selects: render per-field checkboxes for the chosen side
 function setup_merge_side_listener(selectId, settingsDivId, side) {
 document.getElementById(selectId).addEventListener("change", function () {
 const profiles = settings.filterProfiles || {};
@@ -9554,13 +9463,11 @@ update_merge_result_preview();
 }
 setup_merge_side_listener("mergeProfileLeft", "mergeLeftSettings", "left");
 setup_merge_side_listener("mergeProfileRight", "mergeRightSettings", "right");
-// Any setting checkbox toggled: refresh preview
 document.getElementById("mergeProfilesModal").addEventListener("change", function (event) {
 if (event.target.classList.contains("merge-setting-check")) {
 update_merge_result_preview();
 }
 });
-// Add Merged Profile button
 document.getElementById("saveMergeProfile").addEventListener("click", function () {
 const leftName = document.getElementById("mergeProfileLeft").value;
 const rightName = document.getElementById("mergeProfileRight").value;
@@ -9584,13 +9491,11 @@ update_profile_select_display();
 add_alert(`Filter profile "${newName}" saved!`, "success");
 bootstrap.Modal.getInstance(document.getElementById("mergeProfilesModal")).hide();
 });
-// Show indicator dot when a specific run is selected in the dropdown
 document.getElementById("runs").addEventListener("change", function () {
 const indicator = document.getElementById("filterRunSelectedIndicator");
 if (indicator) indicator.style.display = this.value !== "All" ? "inline-block" : "none";
 update_filters_button_indicator();
 });
-// Listen for filter changes to update the profile display and the navbar dot
 const filterModal = document.getElementById("filtersModal");
 filterModal.addEventListener("change", function () {
 update_profile_select_display();
@@ -9604,15 +9509,15 @@ update_filters_button_indicator();
 // function to create customized view eventlisteners
 function setup_settings_modal() {
 // function to catch the closing of the settings modal
-$("#settingsModal").on("hidden.bs.modal", function () {
+document.getElementById("settingsModal").addEventListener("hidden.bs.modal", function () {
 setup_data_and_graphs();
 });
 // function to catch the closing of the settings modal
-$("#settingsModal").on("shown.bs.modal", function () {
+document.getElementById("settingsModal").addEventListener("shown.bs.modal", function () {
 const libraries = [...new Set(
 keywords
 .map(item => item.owner)
-.filter(owner => owner) // remove null, undefined, or empty string
+.filter(owner => owner)
 )];
 const keywordPrefs = settings.libraries ?? {};
 function render_keyword_libraries() {
@@ -9672,7 +9577,6 @@ set_local_storage_item(key, newValue);
 }
 };
 }
-// Data-driven toggle handlers: create handler, load initial value, attach event listener
 [
 { key: "show.unified", elementId: "toggleUnified" },
 { key: "show.dateLabels", elementId: "toggleLabels" },
@@ -9703,9 +9607,7 @@ document.getElementById("toggleTimezone").addEventListener("click", () => setup_
 document.getElementById("toggleTimezones").addEventListener("click", () => setup_lowest_highest_dates());
 document.getElementById("themeLight").addEventListener("click", () => toggle_theme());
 document.getElementById("themeDark").addEventListener("click", () => toggle_theme());
-// Convert any CSS color string to #rrggbb hex for <input type="color">
 function to_hex_color(color) {
-// Handle rgba/rgb strings by parsing components directly
 const rgbaMatch = color.match(/^rgba?\(\s*(\d+),\s*(\d+),\s*(\d+)/);
 if (rgbaMatch) {
 const [, r, g, b] = rgbaMatch.map(Number);
@@ -9721,13 +9623,11 @@ function load_color() {
 const element = document.getElementById(elementId);
 const isDarkMode = document.documentElement.classList.contains("dark-mode");
 const themeMode = isDarkMode ? 'dark' : 'light';
-// Check if user has custom colors for this theme mode
 const customColors = settings.theme_colors?.custom?.[themeMode];
 const storedColor = customColors?.[colorKey];
 if (storedColor) {
 element.value = to_hex_color(storedColor);
 } else {
-// Use default from settings for current theme mode
 const defaults = settings.theme_colors[themeMode];
 element.value = to_hex_color(defaults[colorKey]);
 }
@@ -9751,7 +9651,6 @@ function reset_color() {
 const element = document.getElementById(elementId);
 const isDarkMode = document.documentElement.classList.contains("dark-mode");
 const themeMode = isDarkMode ? 'dark' : 'light';
-// Reset to default from settings
 const defaults = settings.theme_colors[themeMode];
 element.value = to_hex_color(defaults[colorKey]);
 if (settings.theme_colors?.custom?.[themeMode]) {
@@ -9766,29 +9665,24 @@ const backgroundColorHandler = create_theme_color_handler('background', 'themeBa
 const cardColorHandler = create_theme_color_handler('card', 'themeCardColor');
 const highlightColorHandler = create_theme_color_handler('highlight', 'themeHighlightColor');
 const textColorHandler = create_theme_color_handler('text', 'themeTextColor');
-// Load colors on modal open
-$("#settingsModal").on("shown.bs.modal", function () {
+document.getElementById("settingsModal").addEventListener("shown.bs.modal", function () {
 backgroundColorHandler.load_color();
 cardColorHandler.load_color();
 highlightColorHandler.load_color();
 textColorHandler.load_color();
-// Load branding state
 document.getElementById('customBrandingTitle').value = settings.branding?.title || "";
 const hasLogo = !!settings.branding?.logo;
 document.getElementById('removeCustomLogo').disabled = !hasLogo;
 document.getElementById('customLogoUpload').value = "";
 });
-// Add event listeners for color inputs
 document.getElementById('themeBackgroundColor').addEventListener('change', () => backgroundColorHandler.update_color());
 document.getElementById('themeCardColor').addEventListener('change', () => cardColorHandler.update_color());
 document.getElementById('themeHighlightColor').addEventListener('change', () => highlightColorHandler.update_color());
 document.getElementById('themeTextColor').addEventListener('change', () => textColorHandler.update_color());
-// Add event listeners for reset buttons
 document.getElementById('resetBackgroundColor').addEventListener('click', () => backgroundColorHandler.reset_color());
 document.getElementById('resetCardColor').addEventListener('click', () => cardColorHandler.reset_color());
 document.getElementById('resetHighlightColor').addEventListener('click', () => highlightColorHandler.reset_color());
 document.getElementById('resetTextColor').addEventListener('click', () => textColorHandler.reset_color());
-// Custom title handler
 document.getElementById('customBrandingTitle').addEventListener('input', function () {
 const title = this.value.trim();
 set_local_storage_item('branding.title', title);
@@ -9799,7 +9693,6 @@ document.getElementById('customBrandingTitle').value = "";
 set_local_storage_item('branding.title', "");
 apply_custom_branding();
 });
-// Custom logo handler
 document.getElementById('customLogoUpload').addEventListener('change', function () {
 const file = this.files[0];
 if (!file) return;
@@ -10215,7 +10108,6 @@ update_compare_tests_graph();
 // helper functions to save and restore section filter values across fullscreen transitions
 function save_section_filter_values() {
 const saved = {};
-// Suite section
 const suiteFolder = document.getElementById("suiteFolder");
 if (suiteFolder) saved.suiteFolder = suiteFolder.innerText;
 ["suiteSelectSuites", "suiteSelectTests", "testSelect", "testTagsSelect", "keywordSelect",
@@ -10232,7 +10124,6 @@ if (suiteFolder && saved.suiteFolder !== undefined) suiteFolder.innerText = save
 "compareRun1", "compareRun2", "compareRun3", "compareRun4"].forEach(id => {
 const el = document.getElementById(id);
 if (el && saved[id] !== undefined) {
-// Only restore if the saved value still exists as an option
 const optionExists = Array.from(el.options).some(opt => opt.value === saved[id]);
 if (optionExists) el.value = saved[id];
 }
@@ -10250,7 +10141,6 @@ const fullscreen = document.getElementById(fullscreenId);
 const close = document.getElementById(closeId);
 const content = fullscreen.closest(".grid-stack-item-content");
 const canvasId = `${fullscreenButton}Graph`;
-// Save filter values before fullscreen transition to restore after graph updates
 const savedFilterValues = save_section_filter_values();
 show_graph_loading(canvasId);
 inFullscreen = entering;
@@ -10299,7 +10189,6 @@ window[graphFunctionName]();
 if (fullscreenButton === "runDonut") {
 update_run_donut_total_graph();
 }
-// Restore filter values after graph updates
 restore_section_filter_values(savedFilterValues);
 hide_graph_loading(canvasId);
 }, 0);
@@ -10307,12 +10196,12 @@ hide_graph_loading(canvasId);
 document.getElementById(fullscreenId).addEventListener("click", () => {
 inFullscreenGraph = fullscreenId;
 lastScrollY = window.scrollY;
-$("#navigation").hide();
+document.getElementById("navigation").style.display = "none";
 toggleFullscreen(true);
 });
 document.getElementById(closeId).addEventListener("click", () => {
 inFullscreenGraph = ""
-$("#navigation").show();
+document.getElementById("navigation").style.display = "";
 toggleFullscreen(false);
 window.scrollTo({ top: lastScrollY, behavior: "auto" });
 });
@@ -10338,7 +10227,6 @@ update_suite_folder_donut_graph(folder)
 });
 });
 // ignore skip button eventlisteners
-// Load initial states from settings
 document.getElementById("ignoreSkips").checked = settings.switch.ignoreSkips;
 ignoreSkips = settings.switch.ignoreSkips;
 document.getElementById("ignoreSkipsRecent").checked = settings.switch.ignoreSkipsRecent;
@@ -10366,7 +10254,6 @@ update_graphs_with_loading(["suiteFolderDonutGraph", "suiteFolderFailDonutGraph"
 update_suite_folder_donut_graph("");
 });
 });
-// Load initial states for checkbox switches
 [
 ["onlyLastRunSuite", "switch.onlyLastRunSuite"],
 ["onlyLastRunTest", "switch.onlyLastRunTest"],
@@ -10380,7 +10267,6 @@ if (typeof value === "boolean") {
 document.getElementById(elementId).checked = value;
 }
 });
-// Load initial states for select switches
 [
 ["heatMapTestType", "switch.heatmapStatus"],
 ["heatMapHour", "switch.heatmapHour"],
@@ -10395,12 +10281,10 @@ document.getElementById(elementId).value = value;
 }
 });
 heatMapHourAll = document.getElementById("heatMapHour").value === "All";
-// Simple graph update listeners: element change triggers single graph update
 [
 ["heatMapTestType", "runHeatmapGraph", update_run_heatmap_graph, "switch.heatmapStatus", "select"],
 ["testOnlyChanges", "testStatisticsGraph", update_test_statistics_graph, "switch.testOnlyChanges", "checkbox"],
 ["testNoChanges", "testStatisticsGraph", update_test_statistics_graph, "switch.testStatusFilter", "select"],
-["testRerunView", "testStatisticsGraph", update_test_statistics_graph, "switch.testRerunView", "select"],
 ["compareOnlyChanges", "compareTestsGraph", update_compare_tests_graph, "switch.compareOnlyChanges", "checkbox"],
 ["compareNoChanges", "compareTestsGraph", update_compare_tests_graph, "switch.compareStatusFilter", "select"],
 ["compareRerunView", "compareTestsGraph", update_compare_tests_graph, "switch.compareRerunView", "select"],
@@ -10415,6 +10299,23 @@ const newValue = type === "select" ? el.value : el.checked;
 set_local_storage_item(settingsKey, newValue);
 update_graphs_with_loading([graphId], updateFn);
 });
+});
+// the rerun view (mark reruns / final result / first attempt) is read by every test graph that
+// marks re-executed tests or resolves their status, not only by the test statistics graph
+document.getElementById("testRerunView").addEventListener("change", () => {
+set_local_storage_item("switch.testRerunView", document.getElementById("testRerunView").value);
+update_graphs_with_loading(
+["testStatisticsGraph", "testMessagesGraph", "testMostFlakyGraph", "testRecentMostFlakyGraph",
+"testMostFailedGraph", "testRecentMostFailedGraph"],
+() => {
+update_test_statistics_graph();
+update_test_messages_graph();
+update_test_most_flaky_graph();
+update_test_recent_most_flaky_graph();
+update_test_most_failed_graph();
+update_test_recent_most_failed_graph();
+}
+);
 });
 document.getElementById("heatMapHour").addEventListener("change", () => {
 heatMapHourAll = document.getElementById("heatMapHour").value === "All";
@@ -10498,7 +10399,6 @@ handle_graph_change_type_button_click(graphChangeButton, graphType.toLowerCase()
 Object.entries(graphChangeButtons).forEach(([graphChangeButton, buttonTypes]) => {
 add_graph_eventlisteners(graphChangeButton, buttonTypes);
 });
-// Initialize active states for all graph types on first load
 Object.entries(graphChangeButtons).forEach(([graphChangeButton, buttonTypes]) => {
 if (graphChangeButton.includes("table")) { return; }
 const camelButtonName = underscore_to_camelcase(graphChangeButton);
@@ -10507,16 +10407,14 @@ const defaultGraphType = buttonTypes.split(",")[0].toLowerCase();
 const activeGraphType = storedGraphType || defaultGraphType;
 update_active_graph_type_buttons(graphChangeButton, activeGraphType);
 });
-// Handle modal show event - move section filters into modal card bodies
-$("#sectionFiltersModal").on("show.bs.modal", function () {
+document.getElementById("sectionFiltersModal").addEventListener("show.bs.modal", function () {
 ["suite", "test", "keyword"].forEach(section => {
 const filters = document.getElementById(`${section}SectionFilters`);
 const cardBody = document.getElementById(`${section}SectionFiltersCardBody`);
 if (filters && cardBody) cardBody.appendChild(filters);
 });
 });
-// Handle modal hide event - return section filters to original containers
-$("#sectionFiltersModal").on("hide.bs.modal", function () {
+document.getElementById("sectionFiltersModal").addEventListener("hide.bs.modal", function () {
 ["suite", "test", "keyword"].forEach(section => {
 const filters = document.getElementById(`${section}SectionFilters`);
 const container = document.getElementById(`${section}SectionFiltersContainer`);
@@ -10570,10 +10468,9 @@ skipped: skippedMatch ? parseInt(skippedMatch[1]) : 0,
 };
 };
 const reorderProjectCards = (projectId, order) => {
-// Determine correct container for both overview and project sections
 const containerId = `${projectId}RunCardsContainer`;
 const container = document.getElementById(containerId);
-if (!container) return; // guard against missing containers
+if (!container) return;
 const cards = Array.from(container.querySelectorAll('.overview-card'));
 if (cards.length === 0) return;
 const enriched = cards.map(card => ({ el: card, stats: parseRunStatsFromCard(card) }));
@@ -10617,7 +10514,6 @@ reorderProjectCards(projectId, order);
 });
 }
 // === statwidgets.js ===
-// Computes the display value for a given statKey (e.g. "run.totalRuns")
 function get_stat_value(statKey) {
 const dot = statKey.indexOf('.');
 const scope = statKey.slice(0, dot);
@@ -10638,7 +10534,6 @@ if (val === undefined || val === null) return '—';
 if (TIME_PROPS.has(prop)) return format_duration(val);
 return val;
 }
-// Builds the inner HTML for one custom stat widget card slot
 function build_widget_html(widget, editMode) {
 const deleteBtn = editMode
 ? `<a class="delete-custom-stat-widget information" role="button" aria-label="Remove widget" data-title="Remove widget" data-widget-id="${widget.id}"></a>`
@@ -10650,7 +10545,6 @@ ${moveBtns}
 <div class="stat-value ${widget.color}" id="customStatWidget-${widget.id}-value"></div>
 </div>`;
 }
-// Adds all custom stat widgets that belong to sectionKey (lowercase, e.g. "run") to the provided GridStack
 function render_custom_stat_widgets(gridStack, sectionKey, editMode) {
 const capSection = sectionKey.charAt(0).toUpperCase() + sectionKey.slice(1);
 const gridId     = `grid${capSection}`;
@@ -10679,7 +10573,6 @@ apply_bg_class(item, widget.bgColor);
 }
 update_values_for_section(sectionKey);
 }
-// Updates the displayed values of all rendered custom stat widgets for one section
 function update_values_for_section(sectionKey) {
 const widgets = (settings.statWidgets || []).filter(w => w.section === sectionKey);
 for (const widget of widgets) {
@@ -10687,13 +10580,11 @@ const el = document.getElementById(`customStatWidget-${widget.id}-value`);
 if (el) el.innerText = get_stat_value(widget.statKey);
 }
 }
-// Updates the displayed values of ALL rendered custom stat widgets (all sections)
 function update_custom_stat_widgets() {
 for (const section of ['run', 'suite', 'test', 'keyword', 'unified']) {
 update_values_for_section(section);
 }
 }
-// Saves a new custom stat widget to localStorage and returns it
 function add_custom_stat_widget(section, statKey, title, color, bgColor) {
 const id     = generate_id();
 const widget = { id, section, statKey, title, color, bgColor };
@@ -10702,12 +10593,10 @@ list.push(widget);
 set_local_storage_item('statWidgets', list);
 return widget;
 }
-// Removes a custom stat widget from localStorage by its id
 function remove_custom_stat_widget(id) {
 const list = (settings.statWidgets || []).filter(w => w.id !== id);
 set_local_storage_item('statWidgets', list);
 }
-// Populates the stat dropdown in the Add Stat Widget modal with optgroups per section
 function populate_stat_widget_select() {
 const select = document.getElementById('addStatWidgetStat');
 if (!select) return;
@@ -10726,19 +10615,16 @@ group.appendChild(opt);
 select.appendChild(group);
 }
 }
-// Populates the text color picker buttons in the Add Stat Widget modal
 function populate_stat_widget_colors() {
 const picker = document.getElementById('addStatWidgetColorPicker');
 if (!picker) return;
 fill_color_picker(picker, STAT_WIDGET_COLORS, 'white-text');
 }
-// Populates the background color picker buttons in the Add Stat Widget modal
 function populate_stat_widget_bg_colors() {
 const picker = document.getElementById('addStatWidgetBgColorPicker');
 if (!picker) return;
 fill_color_picker(picker, STAT_WIDGET_BG_COLORS, '');
 }
-// Pre-selects a stat by section key (lowercase) and updates title / color accordingly
 function preselectStatSection(sectionKey) {
 const select = document.getElementById('addStatWidgetStat');
 if (!select) return;
@@ -10749,18 +10635,15 @@ select.value = opt.value;
 sync_modal_defaults_from_stat(opt);
 }
 }
-// Reads the selected option and updates the title default only (color is not auto-changed)
 function sync_modal_defaults_from_stat(opt) {
 const titleEl = document.getElementById('addStatWidgetTitle');
 if (titleEl && !titleEl.dataset.userEdited) titleEl.value = opt.textContent;
 }
-// Returns all stat widget definitions available for the given section ("run"/"suite"/"test"/"keyword"/"unified")
 function get_all_stat_defs(sectionKey) {
 return sectionKey === 'unified'
 ? STAT_WIDGET_DEFS
 : STAT_WIDGET_DEFS.filter(d => d.section.toLowerCase() === sectionKey);
 }
-// Populates the "All" tab list with one toggle + title input row per available stat for the given section
 function populate_all_widgets_list(sectionKey) {
 const container = document.getElementById('addAllWidgetsList');
 if (!container) return;
@@ -10807,7 +10690,6 @@ container.appendChild(row);
 const toggleAll = document.getElementById('addAllWidgetsToggleAll');
 if (toggleAll) toggleAll.checked = true;
 }
-// Adds a stat widget for every toggled-on row in the "All" tab list
 function add_selected_stat_widgets(sectionKey, randomColors, color, bgColor) {
 const container = document.getElementById('addAllWidgetsList');
 if (!container) return 0;
@@ -10831,7 +10713,6 @@ added++;
 set_local_storage_item('statWidgets', list);
 return added;
 }
-// Wires all events inside the Add Stat Widget modal (call once after DOM ready)
 function setup_add_stat_widget_modal() {
 populate_stat_widget_select();
 populate_stat_widget_colors();
@@ -10868,7 +10749,6 @@ document.querySelectorAll('#addAllWidgetsList .add-all-widgets-toggle').forEach(
 toggle.checked = checked;
 });
 });
-// Add All confirm button
 allConfirm?.addEventListener('click', () => {
 const modal      = document.getElementById('addStatWidgetModal');
 const sectionKey = modal.dataset.pendingSection || 'run';
@@ -10894,7 +10774,6 @@ const opt = statSelect.options[statSelect.selectedIndex];
 if (titleInput) titleInput.dataset.userEdited = '';
 sync_modal_defaults_from_stat(opt);
 });
-// Mark title as user-edited once typed
 titleInput?.addEventListener('input', () => {
 if (titleInput.value.trim()) {
 titleInput.dataset.userEdited = '1';
@@ -10902,7 +10781,6 @@ titleInput.dataset.userEdited = '1';
 titleInput.dataset.userEdited = '';
 }
 });
-// Confirm button
 document.getElementById('addStatWidgetConfirm')?.addEventListener('click', () => {
 const modal      = document.getElementById('addStatWidgetModal');
 const rawSection = modal.dataset.pendingSection || 'run';
@@ -10915,7 +10793,6 @@ const bgColorBtn = document.querySelector('#addStatWidgetBgColorPicker .stat-col
 const bgColor    = bgColorBtn?.dataset.color || '';
 if (!statKey) return;
 const widget = add_custom_stat_widget(section, statKey, title, color, bgColor);
-// Add to the live GridStack if it exists
 const capSection = section.charAt(0).toUpperCase() + section.slice(1);
 const grid       = window[`grid${capSection}`];
 if (grid) {
@@ -10932,7 +10809,6 @@ item.innerHTML = `<div class="grid-stack-item-content">${build_widget_html(widge
 grid.makeWidget(item);
 apply_bg_class(item, widget.bgColor);
 apply_widget_control_icons(item);
-// Wire delete on the newly created widget
 const deleteBtn = item.querySelector(`.delete-custom-stat-widget[data-widget-id="${widget.id}"]`);
 if (deleteBtn) {
 deleteBtn.addEventListener('click', () => handle_delete_widget(widget.id, grid));
@@ -10941,7 +10817,6 @@ deleteBtn.addEventListener('click', () => handle_delete_widget(widget.id, grid))
 update_values_for_section(section);
 // Push a history snapshot so undo/redo can reverse the add
 document.dispatchEvent(new CustomEvent("layout-user-action"));
-// Reset title user-edited flag and close modal
 if (titleInput) {
 titleInput.value = '';
 titleInput.dataset.userEdited = '';
@@ -10959,7 +10834,6 @@ if (singleConfirm) singleConfirm.hidden = false;
 if (allConfirm) allConfirm.hidden = true;
 });
 }
-// Wires delete buttons on all currently rendered custom stat widgets in a grid
 function wire_delete_buttons(gridStack, sectionKey) {
 const widgets = (settings.statWidgets || []).filter(w => w.section === sectionKey);
 for (const widget of widgets) {
@@ -10970,7 +10844,6 @@ btn.addEventListener('click', () => handle_delete_widget(widget.id, gridStack));
 }
 }
 function handle_delete_widget(id, gridStack) {
-// Remove from GridStack DOM
 const el = gridStack?.el?.querySelector(`[data-gs-id="customStatWidget-${id}"]`);
 if (el && gridStack) {
 gridStack.removeWidget(el);
@@ -10979,7 +10852,6 @@ remove_custom_stat_widget(id);
 // Push a history snapshot so undo/redo can reverse the delete
 document.dispatchEvent(new CustomEvent("layout-user-action"));
 }
-// Opens the Add Stat Widget modal, pre-selecting the given section (lowercase)
 function open_add_stat_widget_modal(sectionKey) {
 const modal = document.getElementById('addStatWidgetModal');
 if (!modal) return;
@@ -10989,11 +10861,9 @@ populate_all_widgets_list(sectionKey);
 bootstrap.Modal.getOrCreateInstance(modal).show();
 }
 // === linkwidgets.js ===
-// Strips the protocol from a URL for compact display (https://foo.com/x → foo.com/x)
 function strip_protocol(url) {
 return url.replace(/^https?:\/\//, '');
 }
-// Builds the inner HTML for one custom link widget card
 function build_link_widget_html(widget, editMode) {
 const deleteBtn = editMode
 ? `<a class="delete-custom-link-widget information" role="button" aria-label="Remove widget" data-title="Remove widget" data-widget-id="${widget.id}"></a>`
@@ -11008,7 +10878,6 @@ ${moveBtns}
 <div class="link-widget-url">${displayUrl}</div>
 </div>`;
 }
-// Adds all custom link widgets that belong to sectionKey to the provided GridStack
 function render_custom_link_widgets(gridStack, sectionKey, editMode) {
 const capSection = sectionKey.charAt(0).toUpperCase() + sectionKey.slice(1);
 const gridId     = `grid${capSection}`;
@@ -11034,13 +10903,11 @@ item.setAttribute('data-gs-id', `customLinkWidget-${widget.id}`);
 item.innerHTML = `<div class="grid-stack-item-content">${build_link_widget_html(widget, editMode)}</div>`;
 gridStack.makeWidget(item);
 apply_bg_class(item, widget.bgColor);
-// Wire click navigation on non-edit tiles
 if (!editMode) {
 wire_link_click(item, widget);
 }
 }
 }
-// Wires a click handler on a rendered link widget item that navigates to widget.url
 function wire_link_click(itemEl, widget) {
 const inner = itemEl.querySelector('.link-widget-clickable');
 if (!inner) return;
@@ -11056,7 +10923,6 @@ window.location.href = url;
 }
 });
 }
-// Saves a new custom link widget to localStorage and returns it
 function add_custom_link_widget(section, label, url, newTab, color, bgColor) {
 const id     = generate_id();
 const widget = { id, section, label, url, newTab, color, bgColor };
@@ -11065,23 +10931,19 @@ list.push(widget);
 set_local_storage_item('linkWidgets', list);
 return widget;
 }
-// Removes a custom link widget from localStorage by its id
 function remove_custom_link_widget(id) {
 const list = (settings.linkWidgets || []).filter(w => w.id !== id);
 set_local_storage_item('linkWidgets', list);
 }
-// Populates the text + bg color pickers in the Add Link Widget modal
 function populate_link_widget_colors() {
 const colorPicker = document.getElementById('addLinkWidgetColorPicker');
 const bgPicker    = document.getElementById('addLinkWidgetBgColorPicker');
 if (colorPicker) fill_color_picker(colorPicker, STAT_WIDGET_COLORS, 'white-text');
 if (bgPicker)    fill_color_picker(bgPicker,    STAT_WIDGET_BG_COLORS, '');
 }
-// Wires all events inside the Add Link Widget modal (call once after DOM ready)
 function setup_add_link_widget_modal() {
 populate_link_widget_colors();
 const labelInput = document.getElementById('addLinkWidgetLabel');
-// Confirm button
 document.getElementById('addLinkWidgetConfirm')?.addEventListener('click', () => {
 const modal    = document.getElementById('addLinkWidgetModal');
 const section  = modal.dataset.pendingSection || 'run';
@@ -11094,7 +10956,6 @@ const bgBtn    = document.querySelector('#addLinkWidgetBgColorPicker .stat-color
 const bgColor  = bgBtn?.dataset.color || '';
 if (!url) return;
 const widget = add_custom_link_widget(section, label, url, newTab, color, bgColor);
-// Add to the live GridStack if it exists
 const capSection = section.charAt(0).toUpperCase() + section.slice(1);
 const grid       = window[`grid${capSection}`];
 if (grid) {
@@ -11111,7 +10972,6 @@ item.innerHTML = `<div class="grid-stack-item-content">${build_link_widget_html(
 grid.makeWidget(item);
 apply_bg_class(item, widget.bgColor);
 apply_widget_control_icons(item);
-// Wire delete on the newly created widget
 const deleteBtn = item.querySelector(`.delete-custom-link-widget[data-widget-id="${widget.id}"]`);
 if (deleteBtn) {
 deleteBtn.addEventListener('click', () => handle_delete_link_widget(widget.id, grid));
@@ -11119,14 +10979,12 @@ deleteBtn.addEventListener('click', () => handle_delete_link_widget(widget.id, g
 }
 // Push a history snapshot so undo/redo can reverse the add
 document.dispatchEvent(new CustomEvent("layout-user-action"));
-// Reset inputs and close modal
 if (labelInput) labelInput.value = '';
 const urlInput = document.getElementById('addLinkWidgetUrl');
 if (urlInput) urlInput.value = '';
 bootstrap.Modal.getInstance(modal)?.hide();
 });
 }
-// Wires delete buttons on all currently rendered custom link widgets in a grid
 function wire_link_delete_buttons(gridStack, sectionKey) {
 const widgets = (settings.linkWidgets || []).filter(w => w.section === sectionKey);
 for (const widget of widgets) {
@@ -11144,7 +11002,6 @@ gridStack.removeWidget(el);
 remove_custom_link_widget(id);
 document.dispatchEvent(new CustomEvent("layout-user-action"));
 }
-// Opens the Add Link Widget modal for the given section (lowercase)
 function open_add_link_widget_modal(sectionKey) {
 const modal = document.getElementById('addLinkWidgetModal');
 if (!modal) return;
@@ -11157,7 +11014,6 @@ bootstrap.Modal.getOrCreateInstance(modal).show();
 let layoutHistory = [];
 let layoutHistoryIndex = -1;
 let applyingSnapshot = false;
-// Capture relevant layout settings as a deep-copy snapshot (from settings object)
 function capture_settings_snapshot() {
 return {
 layouts: JSON.parse(JSON.stringify(settings.layouts || {})),
@@ -11201,7 +11057,6 @@ show: [...(settings.view.overview.sections.show || [])],
 },
 };
 }
-// Capture layout state from the live DOM during edit mode
 function capture_dom_snapshot() {
 const snapshot = {
 layouts: {},
@@ -11290,7 +11145,6 @@ snapshot.view.overview.sections.show = shownOverviewSections;
 }
 return snapshot;
 }
-// Push a snapshot onto the history stack (truncates any redo branch)
 function push_layout_snapshot(snapshot) {
 if (applyingSnapshot) return;
 layoutHistory = layoutHistory.slice(0, layoutHistoryIndex + 1);
@@ -11298,7 +11152,6 @@ layoutHistory.push(snapshot);
 layoutHistoryIndex = layoutHistory.length - 1;
 update_history_buttons();
 }
-// Apply a snapshot to settings (without persisting) and re-render in edit mode
 function apply_layout_snapshot(snapshot) {
 applyingSnapshot = true;
 settings.layouts = JSON.parse(JSON.stringify(snapshot.layouts));
@@ -11323,7 +11176,6 @@ document.removeEventListener("graphs-finalized", on_finalized);
 };
 document.addEventListener("graphs-finalized", on_finalized);
 }
-// Update the enabled/disabled visual state of undo and redo buttons
 function update_history_buttons() {
 const undoBtn = document.getElementById("undoLayout");
 const redoBtn = document.getElementById("redoLayout");
@@ -11333,7 +11185,6 @@ const canRedo = layoutHistoryIndex < layoutHistory.length - 1;
 undoBtn.classList.toggle("layout-history-disabled", !canUndo);
 redoBtn.classList.toggle("layout-history-disabled", !canRedo);
 }
-// Capture current DOM state and push to history (no-op when applying a snapshot)
 function capture_dom_snapshot_and_push() {
 if (applyingSnapshot) return;
 push_layout_snapshot(capture_dom_snapshot());
@@ -11347,7 +11198,7 @@ document.getElementById("dashboard").hidden = !(settings.menu.dashboard && !sett
 document.getElementById("compare").hidden = !settings.menu.compare;
 document.getElementById("tables").hidden = !settings.menu.tables;
 const order_sections = (sectionsConfig, topAnchorId) => {
-let prevId = `#${topAnchorId}`;
+let prevEl = document.getElementById(topAnchorId);
 // Show
 for (const section of sectionsConfig.show) {
 let sectionId;
@@ -11363,8 +11214,8 @@ if (!sectionEl) continue;
 if (topAnchorId === "topDashboardSection") {
 sectionEl.hidden = false;
 }
-$(`#${sectionId}`).insertAfter(prevId);
-prevId = `#${sectionId}`;
+prevEl.after(sectionEl);
+prevEl = sectionEl;
 }
 // Hide
 for (const section of sectionsConfig.hide) {
@@ -11373,8 +11224,8 @@ const sectionEl = document.getElementById(sectionId);
 if (!sectionEl) continue;
 if (gridEditMode) {
 sectionEl.hidden = false;
-$(`#${sectionId}`).insertAfter(prevId);
-prevId = `#${sectionId}`;
+prevEl.after(sectionEl);
+prevEl = sectionEl;
 } else {
 sectionEl.hidden = true;
 }
@@ -11458,13 +11309,11 @@ const parentElement = document.getElementById(`${section.toLowerCase()}Statistic
 parentElement.insertAdjacentHTML('beforeend', `<div class="card-body grid-stack" id="${grid}"></div>`);
 window[grid] = initialize_grid();
 }
-// Disable grid if not in edit mode
 if (!gridEditMode) {
 window[grid].disable();
 } else {
 window[grid].on('dragstop resizestop', () => capture_dom_snapshot_and_push());
 }
-// Clear hidden section data
 const sectionDataHidden = document.getElementById(`${section.toLowerCase()}DataHidden`);
 if (sectionDataHidden?.children.length > 0) {
 sectionDataHidden.innerHTML = "";
@@ -11494,7 +11343,6 @@ const default_size = { w: 4, h: 4 };
 const max_columns = 12;
 let current_x = 0;
 let current_y = 0;
-// Helper function to get next position for default layout
 const get_next_position = (w = default_size.w) => {
 const pos = { x: current_x, y: current_y };
 current_x += w;
@@ -11504,10 +11352,9 @@ current_y += default_size.h;
 }
 return pos;
 };
-// Helper function to process graphs with layout
 const process_graphs_with_layout = (graphs, is_visible) => {
 graphs
-.filter(graph => graph.startsWith(section === "Unified" ? "" : section)) // Simple filter: all graphs for unified, section-specific otherwise
+.filter(graph => graph.startsWith(section === "Unified" ? "" : section))
 .forEach(graph => {
 const graphMeta = graphMetadata.find(g => g.label === graph);
 const size = graphMeta?.defaultSize || default_size;
@@ -11520,14 +11367,13 @@ add_graph(graph, pos.x, pos.y, size.w, size.h, is_visible);
 }
 });
 };
-// Process graphs based on mode
 if (gridEditMode) {
 process_graphs_with_layout(graph_show, true);
 process_graphs_with_layout(graph_hide, false);
 } else {
 process_graphs_with_layout(graph_show, true);
 graph_hide
-.filter(graph => graph.startsWith(section === "Unified" ? "" : section)) // Same simple filter
+.filter(graph => graph.startsWith(section === "Unified" ? "" : section))
 .forEach(graph => add_hidden_graph(graph));
 }
 function add_graph(id, x, y, w, h, shown = true) {
@@ -11572,20 +11418,17 @@ document.getElementById(`${graphConfig.key}Title`).innerText = graphConfig.label
 function add_hidden_graph(id) {
 sectionDataHidden.insertAdjacentHTML("beforeend", graphMetadata.find(g => g.label == id).html);
 }
-// Render custom stat widgets for this section
 if (section !== "Compare") {
 const sectionKey = section.toLowerCase();
 render_custom_stat_widgets(window[grid], sectionKey, gridEditMode);
 if (gridEditMode) {
 wire_delete_buttons(window[grid], sectionKey);
 }
-// Render custom link widgets for this section
 render_custom_link_widgets(window[grid], sectionKey, gridEditMode);
 if (gridEditMode) {
 wire_link_delete_buttons(window[grid], sectionKey);
 }
 }
-// Render custom section dividers (unified grid only)
 if (section === "Unified") {
 render_custom_sections(window[grid], gridEditMode);
 if (gridEditMode) {
@@ -11781,7 +11624,6 @@ el.removeAttribute("data-title");
 document.querySelector('.navbar-nav').classList.remove('navbar-disabled');
 }
 }
-// Repacks all widgets in a grid, placing the given item first (toFirst) or last (toLast)
 function move_widget_in_grid(gridStack, itemEl, toFirst) {
 const target = gridStack.engine.nodes.find(n => n.el === itemEl);
 if (!target) return;
@@ -11822,7 +11664,6 @@ gridStack.batchUpdate(false);
 }
 capture_dom_snapshot_and_push();
 }
-// Reusable handler to wire show/hide and move controls within a container
 function attach_section_order_buttons(containerId) {
 const root = `#${containerId}`;
 // Toggle shown/hidden buttons
@@ -11932,11 +11773,8 @@ open_add_stat_widget_modal(sectionKey);
 open_add_link_widget_modal(sectionKey);
 }
 });
-// Setup the add stat widget modal (populate dropdowns, wire confirm/cancel)
 setup_add_stat_widget_modal();
-// Setup the add link widget modal (populate color pickers, wire confirm/cancel)
 setup_add_link_widget_modal();
-// Setup the add custom section modal (populate color pickers, wire confirm/cancel)
 setup_add_custom_section_modal();
 }
 // function to separately add the eventlisteners for overview section layout buttons
@@ -11956,7 +11794,7 @@ const informationMap = {
 "themeLight": "Theme",
 "themeDark": "Theme",
 "database": "Database Summary",
-"versionInformation": 'Robotdashboard 2.2.0',
+"versionInformation": 'Robotdashboard 2.3.0',
 "bug": "Report a bug or request a feature",
 "github": "Github",
 "docs": "Docs",
@@ -12215,7 +12053,7 @@ customInfoMap["rflogo"] = holidayGreetings[activeDecoration];
 for (const id in customInfoMap) {
 const title = customInfoMap[id];
 const element = document.getElementById(id);
-if (!element) continue;  // safety check if element not found
+if (!element) continue;
 element.setAttribute("data-title", title);
 }
 let tooltipEl = null;
@@ -12293,7 +12131,6 @@ createTooltip(target);
 });
 }
 // === menu.js ===
-// ---- Shared helpers for menu buttons ----
 function get_sticky_height() {
 const stickyTop = document.getElementById("navigation");
 return stickyTop ? stickyTop.offsetHeight : 0;
@@ -12351,7 +12188,6 @@ pushIfValid(bestIndex + 1);
 }
 return indices;
 }
-// ---- Menu setup and navigation ----
 function update_menu(item) {
 ["overview", "dashboard", "compare", "tables"].forEach(menuItem => {
 const id = `menu${menuItem.charAt(0).toUpperCase() + menuItem.slice(1)}`;
@@ -12403,10 +12239,9 @@ else if (menuSettings.tables) selectedMenu = "menuTables";
 }
 update_menu(selectedMenu);
 }
-// ---- Data loading and spinner ----
 // function to update all graph data, function is called when updating filters and when the page loads
 function setup_data_and_graphs(menuUpdate = false, prepareOverviewProjectData = false) {
-setup_spinner(false); // show spinner immediately
+setup_spinner(false);
 requestAnimationFrame(() => {
 requestAnimationFrame(() => {
 setup_filtered_data_and_filters();
@@ -12430,7 +12265,6 @@ setup_overview_section_menu_buttons();
 // Always create graphs from scratch because setup_graph_order()
 // rebuilds all GridStack grids and canvas DOM elements above
 create_dashboard_graphs();
-// Ensure overview titles reflect current prefix setting
 update_overview_prefix_display();
 document.dispatchEvent(new Event("graphs-finalized"));
 if (!menuUpdate) {
@@ -12442,24 +12276,16 @@ scroll_to_most_visible_section();
 }
 // function to add a spinner for slow loads
 function setup_spinner(hide) {
+const pages = ["overview", "unified", "dashboard", "compare", "tables"].map(id => document.getElementById(id));
+const loading = document.getElementById("loading");
 if (hide) {
-// Instant transition - hide spinner and show all content immediately
-$("#loading").fadeOut(200);
-$("#overview").fadeIn(200);
-$("#unified").fadeIn(200);
-$("#dashboard").fadeIn(200);
-$("#compare").fadeIn(200);
-$("#tables").fadeIn(200);
+fade_out(loading);
+pages.forEach(page => fade_in(page));
 } else {
-$("#overview").hide()
-$("#unified").hide()
-$("#dashboard").hide()
-$("#compare").hide()
-$("#tables").hide()
-$("#loading").show();
+pages.forEach(page => { page.style.display = "none"; });
+loading.style.display = "";
 }
 }
-// ---- Section menu buttons ----
 // function to update the section (menu) buttons with the correct eventlisteners
 // also sets up the automatic highlighting of the section that is most visible in the top
 // 20-50% percent of the screen
@@ -12487,14 +12313,12 @@ const sections = Object.keys(sectionMap).map(id => document.getElementById(id));
 function update_active_section() {
 const bestIndex = compute_best_visible_index(sections);
 const bestMatch = sections[bestIndex];
-// Highlight the matching button
 sectionButtons.forEach(btn => btn.classList.remove("active"));
 if (bestMatch && sectionMap[bestMatch.id]) {
 sectionMap[bestMatch.id].classList.add("active");
 }
 }
 window.addEventListener("scroll", update_active_section);
-// Initial call to set active on load
 update_active_section();
 sectionButtons.forEach(btn => {
 btn.addEventListener("click", () => {
@@ -12514,11 +12338,9 @@ const isOverviewActive = !!(settings.menu && settings.menu.overview);
 const navbar = document.querySelector(".navbar-nav");
 const overviewMenuLink = document.getElementById("menuOverview");
 if (!navbar || !overviewMenuLink) return;
-// Cleanup any previously created overview dynamic buttons
 const existingOverviewButtons = Array.from(navbar.querySelectorAll('a[id^="overview-"][id$="Nav"]'));
 if (!isOverviewActive) {
 existingOverviewButtons.forEach(el => el.remove());
-// Detach listeners if still attached
 if (overviewNavStore.scrollHandler) {
 window.removeEventListener("scroll", overviewNavStore.scrollHandler);
 overviewNavStore.scrollHandler = null;
@@ -12532,7 +12354,6 @@ return;
 const sections = Array.from(document.querySelectorAll("#overview .overview-bar"))
 .filter(el => el.offsetParent !== null);
 if (sections.length === 0) return;
-// Helper to insert after Overview menu item
 const insertAfter = (newNode, referenceNode) => {
 if (referenceNode.nextSibling) {
 referenceNode.parentNode.insertBefore(newNode, referenceNode.nextSibling);
@@ -12540,7 +12361,6 @@ referenceNode.parentNode.insertBefore(newNode, referenceNode.nextSibling);
 referenceNode.parentNode.appendChild(newNode);
 }
 };
-// Build a map of sectionId -> button (anchor) in navbar
 const buttonMap = new Map();
 const makeButtonForSection = (sectionEl) => {
 const sectionId = sectionEl.id || "";
@@ -12593,7 +12413,6 @@ overviewNavStore.resizeHandler = null;
 }
 return;
 }
-// Refresh labels to reflect current prefix setting
 sections.forEach(section => {
 const btn = buttonMap.get(section.id);
 if (!btn) return;
@@ -12604,7 +12423,6 @@ name = name.replace(/^project_/, '');
 const label = btn.querySelector('i');
 if (label) label.textContent = name;
 });
-// Determine most visible section and neighboring indices
 const bestIndex = compute_best_visible_index(sections);
 const indices = neighbor_indices(bestIndex, sections.length);
 // Reorder the visible buttons (up to 3) in the navbar after the Overview link
@@ -12616,7 +12434,6 @@ btn.hidden = !showButtons;
 if (last.nextSibling !== btn) insertAfter(btn, last);
 last = btn;
 });
-// Update active state and hide non-selected buttons
 sections.forEach((section, idx) => {
 const btn = buttonMap.get(section.id);
 if (!btn) return;
@@ -12673,8 +12490,6 @@ bestMatchId = id;
 });
 return bestMatchId;
 }
-// ---- Responsive navbar / sidebar ----
-//
 // Level 1: page-menu items (Overview, Dashboard, …) move into the sidebar
 // Level 2: icon items also move into the sidebar
 //
@@ -12722,7 +12537,6 @@ sidenavBackdrop.addEventListener('click', close_sidebar);
 function ordered_sidebar_items() {
 const items = [];
 const byId = id => document.getElementById(id);
-// Helper: create an entry for a nav element (if it exists and should show)
 const push = (el, forceShow) => {
 if (!el) return;
 const isOverviewSub = el.id && el.id.startsWith('overview-') && el.id.endsWith('Nav');
@@ -12826,7 +12640,6 @@ li.style.display = on ? 'none' : '';
 function update_overflow() {
 if (updating) return;
 updating = true;
-// Reset to level 0 for fresh measurement
 apply_icons_to_sidebar(false);
 apply_nav_to_sidebar(false);
 const shouldShowHamburger = is_overflowing();
@@ -12871,7 +12684,6 @@ rerunSummaryByRun.set(key, get_rerun_summary(runTests));
 }
 return rerunSummaryByRun.get(String(runStart ?? "").slice(0, 19)) || { reran: 0, recovered: 0, failedAllAttempts: 0 };
 }
-// Data prep/aggregation
 function prepare_projects_grouped_data() {
 for (const run of filteredRuns) {
 const tags = run.tags.split(",");
@@ -12911,8 +12723,6 @@ return Object.fromEntries(latestRunByProject);
 Object.assign(latestRunByProjectName, map_latest_run_by_project(projects_by_name));
 Object.assign(latestRunByProjectTag, map_latest_run_by_project(projects_by_tag));
 }
-// Section/bar builders
-// Helper function to generate common overview section HTML structure
 function generate_overview_section_html(sectionId, prefix, filtersHtml = '') {
 return `
 <div class="card overview-bar" id="${sectionId}">
@@ -13088,6 +12898,8 @@ input.checked = false;
 input.parentElement.classList.remove("d-none"); //show filtered rows
 if (input.id == "runTagCheckBoxAll") input.checked = true;
 }
+const tagModeEl = document.getElementById("tagMode");
+if (tagModeEl) tagModeEl.value = "AND";
 update_filter_active_indicator("runTagCheckBoxAll", "filterRunTagSelectedIndicator");
 }
 function set_filter_show_current_project(projectName) {
@@ -13234,7 +13046,6 @@ container.appendChild(createdRunCard);
 create_overview_run_donut(run, idx, projectName);
 });
 }
-// Card/graph builders
 // function to create overview latest runs statistics
 function create_overview_latest_graphs(preFilteredRuns = null) {
 const orderEl = document.getElementById("overviewLatestSectionOrder");
@@ -13257,7 +13068,6 @@ Object.assign(latestRunByProject, preFilteredRuns);
 }
 // default order by newest (keep current insertion order)
 if (order === 'oldest') {
-// Reverse current order while preserving the same key->value pairs
 latestRunByProject = Object.fromEntries(
 Object.entries(latestRunByProject).reverse()
 );
@@ -13479,7 +13289,6 @@ const chart = canvas.querySelector("canvas").chartInstance;
 if (chart) chart.update();
 });
 }
-// Updates project bars in-place after a filter change — avoids recreating Chart.js canvases.
 function update_grouped_data_for_filter() {
 Object.keys(projects_by_tag).forEach(k => delete projects_by_tag[k]);
 Object.keys(projects_by_name).forEach(k => delete projects_by_name[k]);
@@ -13530,7 +13339,6 @@ for (const el of elements) el.hidden = !visible;
 toggleVisibility(tagged, settings.switch.runTags);
 toggleVisibility(untagged, settings.switch.runName);
 }
-// Update displayed project names to show/hide the 'project_' prefix everywhere
 function update_overview_prefix_display() {
 const showPrefixes = !!(settings && settings.show && settings.show.prefixes);
 // Update Overview Statistics card titles
@@ -13592,7 +13400,6 @@ create_project_overview();
 update_overview_filter_visibility();
 }
 // === tables.js ===
-// data builder functions
 function _get_run_table_data() {
 return filteredRuns.map(run => [
 run.run_start, run.full_name, run.name, run.total, run.passed, run.failed,
@@ -13625,7 +13432,6 @@ return filteredExceptions.map(exception => [
 exception.run_start, exception.message, exception.amount, exception.run_alias,
 ]);
 }
-// column definitions
 const runColumns = [
 { title: "run" }, { title: "full_name" }, { title: "name" }, { title: "total" },
 { title: "passed" }, { title: "failed" }, { title: "skipped" }, { title: "elapsed_s" },
@@ -13652,7 +13458,6 @@ const keywordColumns = [
 const exceptionColumns = [
 { title: "run" }, { title: "message" }, { title: "amount" }, { title: "alias" },
 ];
-// create functions
 function create_data_table(tableId, columns, getDataFn) {
 if (window[tableId]) window[tableId].destroy();
 window[tableId] = new DataTable(`#${tableId}`, {
@@ -13660,6 +13465,7 @@ layout: { topStart: "info", bottomStart: null },
 columns,
 data: getDataFn(),
 scrollX: true,
+autoWidth: false,
 });
 }
 function create_run_table() { create_data_table("runTable", runColumns, _get_run_table_data); }
@@ -13667,7 +13473,6 @@ function create_suite_table() { create_data_table("suiteTable", suiteColumns, _g
 function create_test_table() { create_data_table("testTable", testColumns, _get_test_table_data); }
 function create_keyword_table() { create_data_table("keywordTable", keywordColumns, _get_keyword_table_data); }
 function create_exception_table() { create_data_table("exceptionTable", exceptionColumns, _get_exception_table_data); }
-// update functions
 function update_data_table(tableId, columns, getDataFn) {
 if (!window[tableId]) { create_data_table(tableId, columns, getDataFn); return; }
 window[tableId].clear();
@@ -13929,31 +13734,24 @@ function apply_theme_colors() {
 const root = document.documentElement;
 const isDarkMode = root.classList.contains("dark-mode");
 const themeMode = isDarkMode ? 'dark' : 'light';
-// Get default colors for current theme mode
 const defaultColors = settings.theme_colors[themeMode];
-// Get custom colors if they exist
 const customColors = settings.theme_colors?.custom?.[themeMode] || {};
-// Apply colors (custom overrides default)
 const finalColors = {
 background: customColors.background || defaultColors.background,
 card: customColors.card || defaultColors.card,
 highlight: customColors.highlight || defaultColors.highlight,
 text: customColors.text || defaultColors.text,
 };
-// Set CSS custom properties - background color
 root.style.setProperty('--color-bg', finalColors.background);
 // Use an opaque version of the card color for fullscreen background
 const opaqueCard = finalColors.card.replace(/rgba\(([^,]+),([^,]+),([^,]+),[^)]+\)/, 'rgba($1,$2,$3, 1)');
 root.style.setProperty('--color-fullscreen-bg', opaqueCard);
 root.style.setProperty('--color-modal-bg', finalColors.background);
-// Set CSS custom properties - card color (propagate to all card-like surfaces)
 root.style.setProperty('--color-card', finalColors.card);
 // In light mode, section cards match background; in dark mode they use card color
 root.style.setProperty('--color-section-card-bg', finalColors.card);
 root.style.setProperty('--color-tooltip-bg', finalColors.card);
-// Set CSS custom properties - highlight color
 root.style.setProperty('--color-highlight', finalColors.highlight);
-// Set CSS custom properties - text color (propagate to all text)
 root.style.setProperty('--color-text', finalColors.text);
 root.style.setProperty('--color-menu-text', finalColors.text);
 root.style.setProperty('--color-table-text', finalColors.text);
@@ -13971,7 +13769,6 @@ if (link) link.setAttribute('href', defaultFaviconHref);
 }
 // function to apply custom branding (logo and title) from settings / localStorage
 function apply_custom_branding() {
-// --- Custom title ---
 // Priority: --dashboardtitle (unified_dashboard_title) > settings.branding.title
 const titleEl = document.getElementById("menuCustomTitle");
 const cliTitle = (unified_dashboard_title
@@ -13987,7 +13784,6 @@ titleEl.hidden = false;
 titleEl.hidden = true;
 }
 }
-// --- Custom logo ---
 const rflogoEl = document.getElementById("rflogo");
 const storedLogo = settings.branding?.logo;
 if (storedLogo) {
@@ -14020,7 +13816,6 @@ if (!el.innerHTML) el.innerHTML = svg;
 }
 }
 // === customsections.js ===
-// Builds the inner HTML for a custom section divider bar
 function build_section_divider_html(section, editMode) {
 const deleteBtn = editMode
 ? `<a class="delete-custom-section information" role="button" aria-label="Remove section" data-title="Remove section" data-section-id="${section.id}"></a>`
@@ -14031,7 +13826,6 @@ ${moveBtns}
 <span class="custom-section-title">${section.title}</span>
 </div>`;
 }
-// Adds all custom section dividers (for unified grid) to the provided GridStack
 function render_custom_sections(gridStack, editMode) {
 const savedLayout = settings.layouts?.['gridUnified']
 ? JSON.parse(settings.layouts['gridUnified'])
@@ -14057,7 +13851,6 @@ gridStack.makeWidget(item);
 apply_bg_class(item, section.bgColor);
 }
 }
-// Saves a new custom section divider to localStorage and returns it
 function add_custom_section(title, bgColor, textColor) {
 const id      = generate_id();
 const section = { id, title, bgColor, textColor };
@@ -14066,24 +13859,20 @@ list.push(section);
 set_local_storage_item('customSections', list);
 return section;
 }
-// Removes a custom section divider from localStorage by its id
 function remove_custom_section(id) {
 const list = (settings.customSections || []).filter(s => s.id !== id);
 set_local_storage_item('customSections', list);
 }
-// Populates the background color picker in the Add Custom Section modal
 function populate_section_bg_colors() {
 const picker = document.getElementById('addCustomSectionBgColorPicker');
 if (!picker) return;
 fill_color_picker(picker, STAT_WIDGET_BG_COLORS, '');
 }
-// Populates the text color picker in the Add Custom Section modal
 function populate_section_text_colors() {
 const picker = document.getElementById('addCustomSectionTextColorPicker');
 if (!picker) return;
 fill_color_picker(picker, STAT_WIDGET_COLORS, 'white-text');
 }
-// Wires all events inside the Add Custom Section modal (call once after DOM ready)
 function setup_add_custom_section_modal() {
 populate_section_bg_colors();
 populate_section_text_colors();
@@ -14125,7 +13914,6 @@ populate_section_bg_colors();
 populate_section_text_colors();
 });
 }
-// Wires delete buttons on all currently rendered custom section dividers
 function wire_delete_section_buttons(gridStack) {
 const sections = settings.customSections || [];
 for (const section of sections) {
@@ -14143,7 +13931,6 @@ gridStack.removeWidget(el);
 remove_custom_section(id);
 document.dispatchEvent(new CustomEvent("layout-user-action"));
 }
-// Opens the Add Custom Section modal
 function open_add_custom_section_modal() {
 const modal = document.getElementById('addCustomSectionModal');
 if (!modal) return;
