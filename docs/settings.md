@@ -108,6 +108,7 @@ The **Overview** tab controls which sections are visible on the Overview page an
 | **Display Prefixes** | On | Show the `project_` prefix text on tag-based project names. |
 | **Duration comparison percentage** | 20% | Threshold for color-coding run durations on all project bars: green if a run is at least X% faster than average, red if X% slower. |
 | **Sort Filters** | On | Show the sort filter controls on the Overview. |
+| **Display Custom Filter attributes on run cards** | None | Select which [custom filter](/filtering#global-filters) attributes are shown on each individual run card in the Overview. The list only contains attributes found in the run data; runs without a value for a selected attribute simply omit that line. |
 
 ### Saving Overview Settings
 

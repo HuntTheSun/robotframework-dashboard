@@ -13,6 +13,7 @@ import {
     showingProjectVersionDialogue,
     lastMergeResult,
     filterRows,
+    escape_html_for_merge,
 } from "./variables/globals.js";
 import { arrowDown, arrowRight } from "./variables/svg.js";
 import { fullscreenButtons, graphChangeButtons, compareRunIds } from "./variables/graphs.js";
@@ -41,6 +42,7 @@ import {
     clear_active_profile,
     capture_default_filters,
     merge_two_profiles,
+    collect_custom_filter_dimensions,
 } from "./filter.js"
 import { camelcase_to_underscore, underscore_to_camelcase } from "./common.js";
 import {
@@ -450,6 +452,59 @@ function setup_settings_modal() {
             });
         }
         render_keyword_libraries();
+        render_overview_custom_filter_keys();
+    });
+    // populate the list of custom filter attributes to select
+    // for the overview run cards
+    function render_overview_custom_filter_keys() {
+        const container = document.getElementById("overviewCustomFilterKeysList");
+        if (!container) return;
+        container.innerHTML = "";
+        const dimensions = collect_custom_filter_dimensions();
+        const dimNames = Object.keys(dimensions).sort();
+        if (!dimNames.length) {
+            container.innerHTML = `<li class="list-group-item small text-muted">No custom filter in run data.</li>`;
+            return;
+        }
+        const selectedKeys = settings.show.overviewCustomFilterKeys ?? [];
+        dimNames.forEach(dimName => {
+            const isChecked = selectedKeys.includes(dimName);
+            const item = document.createElement("li");
+            item.className = "list-group-item list-group-item-action d-flex small";
+            const safeDimName = escape_html_for_merge(dimName);
+            item.innerHTML = `
+                <input class="form-check-input me-1" type="checkbox" value="${safeDimName}" id="overviewCustomFilterKey_${safeDimName}" ${isChecked ? "checked" : ""}>
+                <label class="form-check-label ms-2" for="overviewCustomFilterKey_${safeDimName}">${safeDimName}</label>
+            `;
+            container.appendChild(item);
+            item.querySelector("input").addEventListener("change", e => {
+                const current = new Set(settings.show.overviewCustomFilterKeys ?? []);
+                if (e.target.checked) {
+                    current.add(dimName);
+                } else {
+                    current.delete(dimName);
+                }
+                set_local_storage_item("show.overviewCustomFilterKeys", Array.from(current));
+            });
+        });
+    }
+    // dropdown open/close behaviour for the custom filter attribute selector
+    const overviewCustomFilterKeysSelect = document.getElementById("selectOverviewCustomFilterKeys");
+    const overviewCustomFilterKeysCheckBoxes = document.getElementById("overviewCustomFilterKeysCheckBoxes");
+    let showingOverviewCustomFilterKeys = false;
+    function toggle_overview_custom_filter_keys_dialogue() {
+        showingOverviewCustomFilterKeys = !showingOverviewCustomFilterKeys;
+        overviewCustomFilterKeysCheckBoxes.style.display = showingOverviewCustomFilterKeys ? "block" : "none";
+    }
+    overviewCustomFilterKeysSelect.addEventListener("pointerdown", toggle_overview_custom_filter_keys_dialogue);
+    document.body.addEventListener("pointerdown", function (event) {
+        if (
+            showingOverviewCustomFilterKeys &&
+            !overviewCustomFilterKeysCheckBoxes.contains(event.target) &&
+            !overviewCustomFilterKeysSelect.contains(event.target)
+        ) {
+            toggle_overview_custom_filter_keys_dialogue();
+        }
     });
     // function to create setting toggle handlers
     function create_toggle_handler({ key, elementId, datatype = "boolean" }) {

@@ -89,6 +89,7 @@ Global filters are applied to the entire dashboard, affecting all sections and g
 - **None** covers runs that have no value stored for that key.
 - Use the **Mode** dropdown to control matching: **OR** (default), **AND**, or **NOT**.
 - A dot next to the label indicates the filter is active.
+- To show custom filter values directly on the Overview run cards, select the attributes under **Settings → Overview → Display Custom Filter attributes on run cards**. See [Settings - Overview Tab](/settings#overview-settings-overview-tab).
 - See [Advanced CLI & Examples](/advanced-cli-examples#custom-filters) for how to attach custom filter data to runs.
 
 #### 8. Amount

@@ -192,6 +192,7 @@ Tip: avoid using Status and Only Changes together — the result will be empty.`
     "settingPrefixes": "Show or hide the 'project_' prefix on tag-based project names on the Overview.",
     "settingOverviewDurationPercentage": "Threshold for duration color comparison on all project bars. A run is green if at least X% faster than average, red if X% slower.",
     "settingSortFilters": "Show the sort controls for ordering Overview project bars.",
+    "settingOverviewCustomFilterKeys": "Select which custom filter attributes are shown on the individual run cards in the Overview. Only lists attributes found in the run data.",
     "settingBackgroundColor": "Main page background color for the current theme.",
     "settingCardColor": "Background color for graph cards and content panels.",
     "settingHighlightColor": "Accent color used for hover states and interactive elements.",

@@ -34,12 +34,14 @@ import {
     latestRunByProjectTag,
     areGroupedProjectsPrepared,
     filteredRuns,
+    escape_html_for_merge,
 } from '../variables/globals.js';
 import { runs, tests, use_logs } from '../variables/data.js';
 import { get_rerun_summary } from '../graph_data/helpers.js';
 import {
     clear_all_filters,
     update_filter_active_indicator,
+    parse_custom_filters,
 } from '../filter.js';
 
 // rerun summary (rebot --merge attempt history) per run, keyed by the run_start without
@@ -151,6 +153,7 @@ function generate_overview_card_html(
     isTotalStats = false,
     sectionPrefix = 'overview',
     runStart = null,
+    customFilters = null,
 ) {
     const normalizedProjectVersion = projectVersion ?? "None";
     // ensure overview stats and project bar card ids unique
@@ -169,6 +172,22 @@ function generate_overview_card_html(
     if (isTotalStats) {
         smallVersionHtml = '';
         compares = '';
+    }
+    // custom filter attributes selected in settings, shown on individual run cards only
+    const selectedCustomFilterKeys = settings.show.overviewCustomFilterKeys ?? [];
+    let customFiltersHtml = '';
+    if (!isTotalStats && selectedCustomFilterKeys.length) {
+        const parsedCustomFilters = parse_custom_filters(customFilters);
+        const customFilterRows = selectedCustomFilterKeys
+            .filter(key => parsedCustomFilters[key] !== undefined)
+            .map(key => `
+                <div class="run-card-custom-filter" title="Custom filter attribute">
+                    <span class="text-muted">${escape_html_for_merge(key)}:</span> ${escape_html_for_merge(parsedCustomFilters[key])}
+                </div>
+            `).join('');
+        if (customFilterRows) {
+            customFiltersHtml = `<div class="run-card-custom-filters">${customFilterRows}</div>`;
+        }
     }
     // for project bars
     const runsForProject = projects_by_name[projectName] ?? projects_by_tag[projectName] ?? [];
@@ -261,6 +280,7 @@ function generate_overview_card_html(
                             </div>
                             <div>Passed Runs: ${passed_runs}%</div>
                             ${smallVersionHtml}
+                            ${customFiltersHtml}
                             ${logLinkHtml}
                         </div>
                     </div>
@@ -599,6 +619,7 @@ function create_project_run_card(run, projectName, runIndex, runNumber, passRate
         isTotalStats,
         sectionPrefix,
         run.run_start,
+        run.custom_filters,
     )
     const existingRunCard = document.getElementById(`${projectNameForId}Card${runIndex}`);
     if (existingRunCard) {
