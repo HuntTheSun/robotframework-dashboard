@@ -43,6 +43,7 @@ import {
     capture_default_filters,
     merge_two_profiles,
     collect_custom_filter_dimensions,
+    dashboardPages,
 } from "./filter.js"
 import { camelcase_to_underscore, underscore_to_camelcase } from "./common.js";
 import {
@@ -155,8 +156,9 @@ function update_merge_result_preview() {
 function update_filters_button_indicator() {
     const indicator = document.getElementById("filtersActiveIndicator");
     if (!indicator) return;
+    // a hidden custom filter is not applied, so its dot must not mark the button as active
     const anyActive = [...document.querySelectorAll("#filtersModal .version-selected-dot")]
-        .some(el => el.style.display !== "none");
+        .some(el => el.style.display !== "none" && !el.closest("[hidden]"));
     indicator.style.display = anyActive ? "inline-block" : "none";
 }
 
@@ -452,59 +454,57 @@ function setup_settings_modal() {
             });
         }
         render_keyword_libraries();
-        render_overview_custom_filter_keys();
+        dashboardPages.forEach(page => render_hidden_custom_filters(page));
     });
-    // populate the list of custom filter attributes to select
-    // for the overview run cards
-    function render_overview_custom_filter_keys() {
-        const container = document.getElementById("overviewCustomFilterKeysList");
+    function render_hidden_custom_filters(page) {
+        const pageName = page.charAt(0).toUpperCase() + page.slice(1);
+        const settingKey = `hiddenCustomFilters${pageName}`;
+        const container = document.getElementById(`${settingKey}List`);
         if (!container) return;
         container.innerHTML = "";
-        const dimensions = collect_custom_filter_dimensions();
-        const dimNames = Object.keys(dimensions).sort();
+        const dimNames = Object.keys(collect_custom_filter_dimensions()).sort();
         if (!dimNames.length) {
-            container.innerHTML = `<li class="list-group-item small text-muted">No custom filter in run data.</li>`;
+            container.innerHTML = `<li class="list-group-item small text-muted">No custom filters in run data.</li>`;
             return;
         }
-        const selectedKeys = settings.show.overviewCustomFilterKeys ?? [];
-        dimNames.forEach(dimName => {
-            const isChecked = selectedKeys.includes(dimName);
+        dimNames.forEach((dimName, dimIndex) => {
+            const isChecked = (settings.show[settingKey] ?? []).includes(dimName);
+            const checkBoxId = `${settingKey}_${dimIndex}`;
             const item = document.createElement("li");
             item.className = "list-group-item list-group-item-action d-flex small";
-            const safeDimName = escape_html_for_merge(dimName);
             item.innerHTML = `
-                <input class="form-check-input me-1" type="checkbox" value="${safeDimName}" id="overviewCustomFilterKey_${safeDimName}" ${isChecked ? "checked" : ""}>
-                <label class="form-check-label ms-2" for="overviewCustomFilterKey_${safeDimName}">${safeDimName}</label>
+                <input class="form-check-input me-1" type="checkbox" value="${escape_html_for_merge(dimName)}" id="${checkBoxId}" ${isChecked ? "checked" : ""}>
+                <label class="form-check-label ms-2" for="${checkBoxId}">${escape_html_for_merge(dimName)}</label>
             `;
             container.appendChild(item);
             item.querySelector("input").addEventListener("change", e => {
-                const current = new Set(settings.show.overviewCustomFilterKeys ?? []);
+                const hiddenCustomFilters = new Set(settings.show[settingKey] ?? []);
                 if (e.target.checked) {
-                    current.add(dimName);
+                    hiddenCustomFilters.add(dimName);
                 } else {
-                    current.delete(dimName);
+                    hiddenCustomFilters.delete(dimName);
                 }
-                set_local_storage_item("show.overviewCustomFilterKeys", Array.from(current));
+                set_local_storage_item(`show.${settingKey}`, Array.from(hiddenCustomFilters));
             });
         });
     }
-    // dropdown open/close behaviour for the custom filter attribute selector
-    const overviewCustomFilterKeysSelect = document.getElementById("selectOverviewCustomFilterKeys");
-    const overviewCustomFilterKeysCheckBoxes = document.getElementById("overviewCustomFilterKeysCheckBoxes");
-    let showingOverviewCustomFilterKeys = false;
-    function toggle_overview_custom_filter_keys_dialogue() {
-        showingOverviewCustomFilterKeys = !showingOverviewCustomFilterKeys;
-        overviewCustomFilterKeysCheckBoxes.style.display = showingOverviewCustomFilterKeys ? "block" : "none";
-    }
-    overviewCustomFilterKeysSelect.addEventListener("pointerdown", toggle_overview_custom_filter_keys_dialogue);
-    document.body.addEventListener("pointerdown", function (event) {
-        if (
-            showingOverviewCustomFilterKeys &&
-            !overviewCustomFilterKeysCheckBoxes.contains(event.target) &&
-            !overviewCustomFilterKeysSelect.contains(event.target)
-        ) {
-            toggle_overview_custom_filter_keys_dialogue();
+    // dropdown open/close behaviour, one selector per page
+    dashboardPages.forEach(page => {
+        const pageName = page.charAt(0).toUpperCase() + page.slice(1);
+        const selectEl = document.getElementById(`selectHiddenCustomFilters${pageName}`);
+        const checkBoxesEl = document.getElementById(`hiddenCustomFilters${pageName}CheckBoxes`);
+        if (!selectEl || !checkBoxesEl) return;
+        let showing = false;
+        function toggle() {
+            showing = !showing;
+            checkBoxesEl.style.display = showing ? "block" : "none";
         }
+        selectEl.addEventListener("pointerdown", toggle);
+        document.body.addEventListener("pointerdown", function (event) {
+            if (showing && !checkBoxesEl.contains(event.target) && !selectEl.contains(event.target)) {
+                toggle();
+            }
+        });
     });
     // function to create setting toggle handlers
     function create_toggle_handler({ key, elementId, datatype = "boolean" }) {

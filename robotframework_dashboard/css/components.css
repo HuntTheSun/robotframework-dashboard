@@ -454,7 +454,12 @@
    affecting the layout of the stats/duration columns next to the donut */
 .overview-card .card-body {
   position: relative;
-  padding-bottom: 2rem; /* fix overlap between customFilter and run time */
+}
+
+/* only when custom filter lines are rendered, an unconditional padding changes the height of
+   every run card and breaks the overview reference screenshots */
+.overview-card .card-body:has(.run-card-custom-filters) {
+  padding-bottom: 2rem;
 }
 
 .run-card-run-time {

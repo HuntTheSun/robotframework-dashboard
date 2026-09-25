@@ -58,7 +58,10 @@ var settings = {
         convertTimezone: false,
         suitesSelectionInSuiteStats: "First Suite",
         suitesSelectionInTestStats: "First Suite",
-        overviewCustomFilterKeys: [],
+        hiddenCustomFiltersOverview: [],
+        hiddenCustomFiltersDashboard: [],
+        hiddenCustomFiltersCompare: [],
+        hiddenCustomFiltersTables: [],
     },
     theme_colors: {
         light: {

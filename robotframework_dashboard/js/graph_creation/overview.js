@@ -42,6 +42,7 @@ import {
     clear_all_filters,
     update_filter_active_indicator,
     parse_custom_filters,
+    get_hidden_custom_filters,
 } from '../filter.js';
 
 // rerun summary (rebot --merge attempt history) per run, keyed by the run_start without
@@ -173,13 +174,12 @@ function generate_overview_card_html(
         smallVersionHtml = '';
         compares = '';
     }
-    // custom filter attributes selected in settings, shown on individual run cards only
-    const selectedCustomFilterKeys = settings.show.overviewCustomFilterKeys ?? [];
     let customFiltersHtml = '';
-    if (!isTotalStats && selectedCustomFilterKeys.length) {
+    if (!isTotalStats) {
+        const hiddenCustomFilters = get_hidden_custom_filters("overview");
         const parsedCustomFilters = parse_custom_filters(customFilters);
-        const customFilterRows = selectedCustomFilterKeys
-            .filter(key => parsedCustomFilters[key] !== undefined)
+        const customFilterRows = Object.keys(parsedCustomFilters).sort()
+            .filter(key => !hiddenCustomFilters.includes(key))
             .map(key => `
                 <div class="run-card-custom-filter" title="Custom filter attribute">
                     <span class="text-muted">${escape_html_for_merge(key)}:</span> ${escape_html_for_merge(parsedCustomFilters[key])}
