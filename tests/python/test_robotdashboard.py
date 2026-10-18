@@ -235,3 +235,55 @@ def test_process_outputs_folder_scan_corrupt_xml_logs_error(tmp_path):
     output_folder_configs = [[str(tmp_path), []]]
     console = rd.process_outputs(output_folder_configs=output_folder_configs)
     assert "ERROR" in console
+
+
+@pytest.mark.parametrize(
+    "file_name, expected",
+    [
+        ("output_nightly.xml", "nightly"),
+        ("output-20250313.xml", "output-20250313"),
+        ("my_output_1.xml", "my_output_1"),
+        ("output_a.xml.output_b.xml", "a.xml.output_b"),
+        ("output.xml", "output"),
+    ],
+)
+def test_run_alias_from_file_name_strips_only_prefix_and_extension(file_name, expected):
+    assert RobotDashboard._run_alias_from_file_name(file_name) == expected
+
+
+def test_process_outputs_failed_insert_logs_error_and_can_be_retried(tmp_path):
+    from unittest.mock import patch
+    rd = _make_rd(tmp_path)
+    rd.initialize_database()
+    with patch.object(rd.database, "_insert_tests", side_effect=Exception("boom")):
+        console = rd.process_outputs(output_file_info_list=[(str(SAMPLE_XML), [])])
+    assert "ERROR: Could not process output XML" in console
+    assert "Processed output XML" not in console
+    console = rd.process_outputs(output_file_info_list=[(str(SAMPLE_XML), [])])
+    assert "Processed output XML" in console
+
+
+def test_database_is_closed_when_a_call_fails(tmp_path):
+    """In server mode a failing call must not leave the connection open."""
+    from unittest.mock import patch
+    rd = _make_rd(tmp_path, generate_dashboard=True)
+    rd.initialize_database()
+    with patch.object(rd.database, "get_data", side_effect=Exception("boom")):
+        with pytest.raises(Exception, match="boom"):
+            rd.create_dashboard()
+    assert rd.database.connection is None
+    with patch.object(rd.database, "_get_runs", side_effect=Exception("boom")):
+        with pytest.raises(Exception, match="boom"):
+            rd.get_runs()
+    assert rd.database.connection is None
+
+
+def test_process_outputs_skips_already_stored_output_without_parsing_it(tmp_path):
+    from unittest.mock import patch
+    rd = _make_rd(tmp_path)
+    rd.initialize_database()
+    rd.process_outputs(output_file_info_list=[(str(SAMPLE_XML), [])])
+    with patch("robotframework_dashboard.processors.ExecutionResult") as execution_result:
+        console = rd.process_outputs(output_file_info_list=[(str(SAMPLE_XML), [])])
+    execution_result.assert_not_called()
+    assert "trying to add the same output again" in console

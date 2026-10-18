@@ -9,7 +9,7 @@ from typing import Union
 from json import dumps
 
 # Explicit adapter for datetime -> ISO string, replacing the deprecated default
-# behaviour removed in Python 3.12+. Compatible with Python 3.8+.
+# behaviour removed in Python 3.12+. Compatible with Python 3.9+.
 # See: https://docs.python.org/3/library/sqlite3.html#adapter-and-converter-recipes
 sqlite3.register_adapter(datetime, lambda val: val.isoformat(sep=" "))
 
@@ -36,17 +36,12 @@ class DatabaseProcessor(AbstractDatabaseProcessor):
         self.connection.row_factory = sqlite3.Row
 
     def run_start_exists(self, run_start: str):
-        run_rows = (
-            self.connection.cursor().execute(SELECT_RUN_STARTS_FROM_RUNS).fetchall()
-        )
-        rows = []
-        for row in run_rows:
-            rows.append(self._dict_from_row(row))
-        run_starts = [item["run_start"] for item in rows]
-        # Use startswith to handle TZ-aware run_starts in DB (e.g. "2025-03-13 00:21:34.123456+02:00")
-        # when the incoming run_start has no timezone suffix (e.g. "2025-03-13 00:21:34.123456")
-        run_start_str = str(run_start)
-        return any(rs == run_start_str or rs.startswith(run_start_str) for rs in run_starts)
+        # the stored run_start can carry a "+02:00" offset the incoming one does not have; an exact
+        # match without it, not a prefix match: str(datetime) drops ".000000", so "10:00:00" is a
+        # prefix of every run from that second
+        run_start = self._without_timezone_offset(str(run_start))
+        params = (run_start, f"{run_start}{GLOB_TIMEZONE_OFFSET}")
+        return self.connection.cursor().execute(SELECT_RUN_START_EXISTS, params).fetchone() is not None
 
     def _create_tables(self):
         """Helper function to create the tables (they use IF NOT EXISTS to not override)"""
@@ -161,7 +156,9 @@ class DatabaseProcessor(AbstractDatabaseProcessor):
         timezone: str = "",
     ):
         """This function inserts the data of an output file into the database"""
-        try:
+        # one transaction: a failure must not leave a run row behind, run_start_exists would then
+        # reject the output as a duplicate on every later attempt
+        with self.connection:
             self._insert_runs(
                 output_data["runs"], tags, run_alias, path, project_version, custom_filters, timezone
             )
@@ -169,8 +166,6 @@ class DatabaseProcessor(AbstractDatabaseProcessor):
             self._insert_tests(output_data["tests"], run_alias, timezone)
             self._insert_keywords(output_data["keywords"], run_alias, timezone)
             self._insert_exceptions(output_data.get("exceptions", []), run_alias, timezone)
-        except Exception as error:
-            print(f"   ERROR: something went wrong with the database: {error}")
 
     def _insert_runs(
         self, runs: list, tags: list, run_alias: str, path: Union[Path, str], project_version, custom_filters, timezone
@@ -193,7 +188,6 @@ class DatabaseProcessor(AbstractDatabaseProcessor):
             )
             full_runs.append(new_run)
         self.connection.executemany(INSERT_INTO_RUNS, full_runs)
-        self.connection.commit()
 
     def _insert_suites(self, suites: list, run_alias: str, timezone: str = ""):
         """Helper function to insert the suite data"""
@@ -207,7 +201,6 @@ class DatabaseProcessor(AbstractDatabaseProcessor):
             suite = tuple(suite)
             full_suites.append(suite)
         self.connection.executemany(INSERT_INTO_SUITES, full_suites)
-        self.connection.commit()
 
     def _insert_tests(self, tests: list, run_alias: str, timezone: str = ""):
         """Helper function to insert the test data"""
@@ -221,7 +214,6 @@ class DatabaseProcessor(AbstractDatabaseProcessor):
             test = tuple(test)
             full_tests.append(test)
         self.connection.executemany(INSERT_INTO_TESTS, full_tests)
-        self.connection.commit()
 
     def _insert_keywords(self, keywords: list, run_alias: str, timezone: str = ""):
         """Helper function to insert the keyword data"""
@@ -235,7 +227,6 @@ class DatabaseProcessor(AbstractDatabaseProcessor):
             keyword = tuple(keyword)
             full_keywords.append(keyword)
         self.connection.executemany(INSERT_INTO_KEYWORDS, full_keywords)
-        self.connection.commit()
 
     def _insert_exceptions(self, exceptions: list, run_alias: str, timezone: str = ""):
         """Helper function to insert the exception data"""
@@ -247,7 +238,6 @@ class DatabaseProcessor(AbstractDatabaseProcessor):
             exc.append(run_alias)
             full_exceptions.append(tuple(exc))
         self.connection.executemany(INSERT_INTO_EXCEPTIONS, full_exceptions)
-        self.connection.commit()
 
     @staticmethod
     def _get_local_timezone_offset():
@@ -270,6 +260,11 @@ class DatabaseProcessor(AbstractDatabaseProcessor):
         return (suffix[0] in ('+', '-') and suffix[3] == ':' and
                 suffix[1:3].isdigit() and suffix[4:6].isdigit())
 
+    @classmethod
+    def _without_timezone_offset(cls, run_start: str):
+        """Helper function to strip a trailing +HH:MM or -HH:MM offset from a run_start string"""
+        return run_start[:-6] if cls._has_timezone_offset(run_start) else run_start
+
     def get_data(self):
         """This function gets all the data in the database"""
         data, runs, suites, tests, keywords, exceptions, aliases = {}, [], [], [], [], [], {}
@@ -277,6 +272,8 @@ class DatabaseProcessor(AbstractDatabaseProcessor):
         local_tz = self._get_local_timezone_offset()
         alias_counter = 1
         run_name_counter = 1
+        # the labels handed out so far; a set because a lookup in aliases.values() is O(runs)
+        used_aliases, used_names = set(), set()
         # Get runs from run table
         run_rows = self.connection.cursor().execute(SELECT_FROM_RUNS).fetchall()
         for run_row in run_rows:
@@ -288,16 +285,17 @@ class DatabaseProcessor(AbstractDatabaseProcessor):
                 row["run_alias"] = alias
                 alias_counter += 1
             else:
-                if row["run_alias"] in aliases.values():
+                if row["run_alias"] in used_aliases:
                     alias = f"{row['run_alias']} {alias_counter}"
                     aliases[row["run_start"]] = alias
                     row["run_alias"] = alias
                     alias_counter += 1
                 else:
                     aliases[row["run_start"]] = row["run_alias"]
+            used_aliases.add(row["run_alias"])
             # Build a deduplicated run_name for display (separate from name, same pattern as aliases)
             run_name = row["name"] or ""
-            if run_name in name_labels.values():
+            if run_name in used_names:
                 dedup_name = f"{run_name} {run_name_counter}"
                 name_labels[row["run_start"]] = dedup_name
                 row["run_name"] = dedup_name
@@ -305,6 +303,7 @@ class DatabaseProcessor(AbstractDatabaseProcessor):
             else:
                 name_labels[row["run_start"]] = run_name
                 row["run_name"] = run_name
+            used_names.add(row["run_name"])
             # exception made from versions before 0.8.1 without path
             if row["path"] == None:
                 row["path"] = ""
@@ -331,7 +330,7 @@ class DatabaseProcessor(AbstractDatabaseProcessor):
         for suite_row in suite_rows:
             row = self._dict_from_row(suite_row)
             if row["id"] == None:
-                row["id"] == ""
+                row["id"] = ""
             # For older entries without timezone in run_start, append current local timezone
             if not self._has_timezone_offset(row["run_start"]):
                 row["run_start"] = f"{row['run_start']}{local_tz}"
@@ -348,7 +347,7 @@ class DatabaseProcessor(AbstractDatabaseProcessor):
             if row["tags"] == None:
                 row["tags"] = ""
             if row["id"] == None:
-                row["id"] == ""
+                row["id"] = ""
             if row.get("attempts") == None:
                 row["attempts"] = ""
             # For older entries without timezone in run_start, append current local timezone
@@ -392,7 +391,7 @@ class DatabaseProcessor(AbstractDatabaseProcessor):
 
     def _dict_from_row(self, row: sqlite3.Row):
         """Helper function create a dictionary object"""
-        return dict(zip(row.keys(), row))
+        return dict(row)
 
     def _get_runs(self):
         """Helper function to get the run data"""
@@ -435,9 +434,9 @@ class DatabaseProcessor(AbstractDatabaseProcessor):
         columns = [col[0] for col in cursor.description]
         return dict(zip(columns, row))
 
-    def _get_rows_for_run_start(self, table, run_start):
+    def _get_rows_for_run_start(self, query, run_start):
         cursor = self.connection.cursor()
-        cursor.execute(f"SELECT * FROM {table} WHERE run_start = ?", (run_start,))
+        cursor.execute(query, (run_start,))
         rows = cursor.fetchall()
         columns = [col[0] for col in cursor.description]
         return [dict(zip(columns, row)) for row in rows]
@@ -449,11 +448,11 @@ class DatabaseProcessor(AbstractDatabaseProcessor):
         if include_all or "run" in types:
             entry["run"] = self._get_run_data(run_start)
         if include_all or "suite" in types:
-            entry["suites"] = self._get_rows_for_run_start("suites", run_start)
+            entry["suites"] = self._get_rows_for_run_start(SELECT_SUITES_BY_RUN_START, run_start)
         if include_all or "test" in types:
-            entry["tests"] = self._get_rows_for_run_start("tests", run_start)
+            entry["tests"] = self._get_rows_for_run_start(SELECT_TESTS_BY_RUN_START, run_start)
         if include_all or "keyword" in types:
-            entry["keywords"] = self._get_rows_for_run_start("keywords", run_start)
+            entry["keywords"] = self._get_rows_for_run_start(SELECT_KEYWORDS_BY_RUN_START, run_start)
         return entry
 
     def _log_run_jsonl(self, logpath, entry):
@@ -484,29 +483,19 @@ class DatabaseProcessor(AbstractDatabaseProcessor):
                 elif "age=" in run:
                     console += self._remove_by_age(run, run_starts)
                 else:
-                    print(
-                        f"  ERROR: incorrect usage of the remove_run feature ({run}), check out robotdashboard --help for instructions"
-                    )
-                    console += f"  ERROR: incorrect usage of the remove_run feature ({run}), check out robotdashboard --help for instructions\n"
+                    console += self._print_console(f"  ERROR: incorrect usage of the remove_run feature ({run}), check out robotdashboard --help for instructions")
             except Exception as error:
-                print(
-                    f"  ERROR: Could not remove run: {run}, reason: {error}, check out robotdashboard --help for instructions"
-                )
-                console += f"  ERROR: Could not remove run: {run}, reason: {error}, check out robotdashboard --help for instructions\n"
+                console += self._print_console(f"  ERROR: Could not remove run: {run}, reason: {error}, check out robotdashboard --help for instructions")
         return console
 
     def _remove_by_run_start(self, run: str, run_starts: list):
         console = ""
         run_start = run.replace("run_start=", "")
         if not run_start in run_starts:
-            print(
-                f"  ERROR: Could not find run to remove from the database: run_start={run_start}"
-            )
-            console += f"  ERROR: Could not find run to remove from the database: run_start={run_start}\n"
+            console += self._print_console(f"  ERROR: Could not find run to remove from the database: run_start={run_start}")
             return console
         self._remove_run(run_start)
-        print(f"  Removed run from the database: run_start={run_start}")
-        console += f"  Removed run from the database: run_start={run_start}\n"
+        console += self._print_console(f"  Removed run from the database: run_start={run_start}")
         return console
 
     def _remove_by_index(self, run: str, run_starts: list):
@@ -522,20 +511,14 @@ class DatabaseProcessor(AbstractDatabaseProcessor):
                 indexes.append(int(run))
         for index in indexes:
             self._remove_run(run_starts[index])
-            print(
-                f"  Removed run from the database: index={index}, run_start={run_starts[index]}"
-            )
-            console += f"  Removed run from the database: index={index}, run_start={run_starts[index]}\n"
+            console += self._print_console(f"  Removed run from the database: index={index}, run_start={run_starts[index]}")
         return console
 
     def _remove_by_alias(self, run: str, run_starts: list, run_aliases: list):
         console = ""
         alias = run.replace("alias=", "")
         self._remove_run(run_starts[run_aliases.index(alias)])
-        print(
-            f"  Removed run from the database: alias={alias}, run_start={run_starts[run_aliases.index(alias)]}"
-        )
-        console += f"  Removed run from the database: alias={alias}, run_start={run_starts[run_aliases.index(alias)]}\n"
+        console += self._print_console(f"  Removed run from the database: alias={alias}, run_start={run_starts[run_aliases.index(alias)]}")
         return console
 
     def _remove_by_tag(self, run: str, run_starts: list, run_tags: list):
@@ -543,19 +526,18 @@ class DatabaseProcessor(AbstractDatabaseProcessor):
         tag = run.replace("tag=", "")
         removed = 0
         for index, run_tag in enumerate(run_tags):
-            if tag in run_tag:
+            if tag in self._split_run_tags(run_tag):
                 self._remove_run(run_starts[index])
-                print(
-                    f"  Removed run from the database: tag={tag}, run_start={run_starts[index]}"
-                )
-                console += f"  Removed run from the database: tag={tag}, run_start={run_starts[index]}\n"
+                console += self._print_console(f"  Removed run from the database: tag={tag}, run_start={run_starts[index]}")
                 removed += 1
         if removed == 0:
-            print(
-                f"  WARNING: no runs were removed as no runs were found with tag: {tag}"
-            )
-            console += f"  WARNING: no runs were removed as no runs were found with tag: {tag}\n"
+            console += self._print_console(f"  WARNING: no runs were removed as no runs were found with tag: {tag}")
         return console
+
+    @staticmethod
+    def _split_run_tags(run_tags: str):
+        """Helper function to split the comma-joined run tags, so a tag only matches itself"""
+        return (run_tags or "").split(",")
 
     @staticmethod
     def _get_run_projects(index: int, run_names: list = None, run_tags: list = None):
@@ -604,10 +586,7 @@ class DatabaseProcessor(AbstractDatabaseProcessor):
         # remove every run (issue #333); removing everything is a separate,
         # explicit action.
         if limit < 1:
-            print(
-                f"  ERROR: no runs were removed as the provided limit ({limit}) must be at least 1"
-            )
-            console += f"  ERROR: no runs were removed as the provided limit ({limit}) must be at least 1\n"
+            console += self._print_console(f"  ERROR: no runs were removed as the provided limit ({limit}) must be at least 1")
             return console
         tag_filters = [
             part.replace("tag=", "") for part in parts[1:] if part.startswith("tag=")
@@ -618,7 +597,7 @@ class DatabaseProcessor(AbstractDatabaseProcessor):
             candidates = [
                 index
                 for index, run_tag in enumerate(run_tags)
-                if any(tag in run_tag for tag in tag_filters)
+                if any(tag in self._split_run_tags(run_tag) for tag in tag_filters)
             ]
             scope = f" with tag(s) {', '.join(tag_filters)}"
         else:
@@ -635,17 +614,11 @@ class DatabaseProcessor(AbstractDatabaseProcessor):
             kept.update(project_indexes[-limit:])
         removals = [index for index in candidates if index not in kept]
         if not removals:
-            print(
-                f"  WARNING: no runs were removed as the provided limit ({limit}) is higher than the number of runs{scope} of every project ({len(candidates)} run(s) in {len(candidates_by_project)} project(s))"
-            )
-            console += f"  WARNING: no runs were removed as the provided limit ({limit}) is higher than the number of runs{scope} of every project ({len(candidates)} run(s) in {len(candidates_by_project)} project(s))\n"
+            console += self._print_console(f"  WARNING: no runs were removed as the provided limit ({limit}) is higher than the number of runs{scope} of every project ({len(candidates)} run(s) in {len(candidates_by_project)} project(s))")
             return console
         for index in removals:
             self._remove_run(run_starts[index])
-            print(
-                f"  Removed run from the database: index={index}, run_start={run_starts[index]}"
-            )
-            console += f"  Removed run from the database: index={index}, run_start={run_starts[index]}\n"
+            console += self._print_console(f"  Removed run from the database: index={index}, run_start={run_starts[index]}")
         return console
 
     def _remove_by_age(self, run_query: str, run_starts: list):
@@ -654,15 +627,15 @@ class DatabaseProcessor(AbstractDatabaseProcessor):
             clean_query = run_query.replace("age=", "")
             mod, delta = self.parse_time_range(clean_query)
         except ValueError as e:
-            print(f"  ERROR: {e}")
-            return f"  ERROR: {e}\n"
+            return self._print_console(f"  ERROR: {e}")
         cutoff = datetime.now(timezone.utc)-delta
         targets = []
         for r in run_starts:
             try:
                 run_dt = datetime.fromisoformat(r)
                 if run_dt.tzinfo is None:
-                    run_dt = run_dt.replace(tzinfo=timezone.utc)
+                    # a run_start without offset is local time, as in get_data
+                    run_dt = run_dt.astimezone()
                 if mod == "+":
                     if run_dt < cutoff:
                         targets.append(r)
@@ -670,17 +643,13 @@ class DatabaseProcessor(AbstractDatabaseProcessor):
                     if run_dt > cutoff:
                         targets.append(r)
             except ValueError as e:
-                print(f"    WARNING: Skipping invalid timestamp: '{r}' ({e})")
+                console += self._print_console(f"    WARNING: Skipping invalid timestamp: '{r}' ({e})")
         if not targets:
-            print(
-                f"  WARNING: no runs were removed as no runs were within range {clean_query}"
-            )
-            console += f"  WARNING: no runs were removed as no runs were within range {clean_query}\n"
+            console += self._print_console(f"  WARNING: no runs were removed as no runs were within range {clean_query}")
             return console
         for run_to_remove in targets:
             self._remove_run(run_to_remove)
-            print(f"  Removed run from the database: run_start={run_to_remove}")
-            console += f"  Removed run from the database: run_start={run_to_remove}\n"
+            console += self._print_console(f"  Removed run from the database: run_start={run_to_remove}")
         return console
 
     def _remove_run(self, run_start: str):
@@ -708,16 +677,22 @@ class DatabaseProcessor(AbstractDatabaseProcessor):
         self.connection.cursor().execute(VACUUM_DATABASE)
         self.connection.commit()
         end = time()
-        console = f"  Vacuumed the database in {round(end - start, 2)} seconds\n"
-        print(f"  Vacuumed the database in {round(end - start, 2)} seconds")
-        return console
+        return self._print_console(f"  Vacuumed the database in {round(end - start, 2)} seconds")
+
+    def _print_console(self, message: str):
+        """Print a message and return it with a newline, for the console text the server sends back"""
+        print(message)
+        return message + "\n"
 
     def parse_time_range(self, range_str: str):
         # Regex groups : [modifier] [value] [unit]
         # e.g., +10d, -4h, 1y
-        match = re.match(r"([+-])?(\d+)([smhdy])", range_str)
+        # fullmatch: a prefix match read "6mo" as 6 minutes
+        match = re.fullmatch(r"([+-])?(\d+)([smhdy])", range_str.strip())
         if not match:
-            raise ValueError("Invalid format. Use e.g., 10d, +5h, -1y")
+            raise ValueError(
+                f"Invalid age '{range_str}'. Use a number and one of the units s, m, h, d, y, e.g. 10d, +5h, -1y"
+            )
         modifier, value, unit = match.groups()
         value = int(value)
         units = {
@@ -731,15 +706,26 @@ class DatabaseProcessor(AbstractDatabaseProcessor):
         delta_kwargs = {units[unit]: value * (365 if unit == 'y' else 1)}
         return modifier or '+', timedelta(**delta_kwargs)
 
+    @staticmethod
+    def _output_name_from_log_name(log_name: str):
+        """Reverse of server_paths.log_name_from_output_name for the prefix and extension only:
+        log-XYZ.html -> output-XYZ.xml, a 'log' elsewhere in the name stays"""
+        output_name = f"output{log_name[3:]}" if log_name.startswith("log") else log_name
+        if output_name.lower().endswith(".html"):
+            output_name = output_name[:-5] + ".xml"
+        return output_name
+
     def update_output_path(self, log_path: str):
         """Function to update the output_path using the log path that the server has used"""
         console = ""
         log_name = Path(log_path).name
-        output_name = log_name.replace("log", "output").replace(".html", ".xml")
+        output_name = self._output_name_from_log_name(log_name)
         data = self.connection.cursor().execute(SELECT_FROM_RUNS).fetchall()
-        for entry in data:
+        # newest first: the listener uploads a log right after its output, and default names
+        # (output.xml/log.html) are shared by every run
+        for entry in reversed(data):
             entry = self._dict_from_row(entry)
-            if output_name in entry["path"] or log_name in entry["path"]:
+            if Path(entry["path"] or "").name in (output_name, log_name):
                 params = (log_path, entry["run_start"])
                 console = f"Executed query: {UPDATE_RUN_PATH_BY_RUN_START} with {params}\n"
                 self.connection.cursor().execute(UPDATE_RUN_PATH_BY_RUN_START, params)
