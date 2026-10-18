@@ -1,5 +1,6 @@
 import { show_loading_overlay, hide_loading_overlay } from "../common.js";
 import { update_menu } from "../menu.js";
+import { open_log_from_path } from "../log.js";
 import { clear_all_filters, set_filter_show_current_version } from "../filter/controls.js";
 import { create_overview_latest_graphs, set_filter_show_current_project } from "../graph_creation/overview.js";
 
@@ -16,19 +17,13 @@ function attach_run_card_version_listener(versionElement, projectName, projectVe
 // this function setups the project bar "sort by" filters eventlisteners
 function setup_overview_order_filters() {
     const parseProjectId = (selectId) => selectId.replace(/SectionOrder$/i, "");
-    const parseRunStatsFromCard = (cardEl) => {
-        const text = cardEl.innerText || "";
-        const runMatch = text.match(/#\s*(\d+)/); // e.g., "#8"
-        const passedMatch = text.match(/Passed:\s*(\d+)/i);
-        const failedMatch = text.match(/Failed:\s*(\d+)/i);
-        const skippedMatch = text.match(/Skipped:\s*(\d+)/i);
-        return {
-            runNumber: runMatch ? parseInt(runMatch[1]) : 0,
-            passed: passedMatch ? parseInt(passedMatch[1]) : 0,
-            failed: failedMatch ? parseInt(failedMatch[1]) : 0,
-            skipped: skippedMatch ? parseInt(skippedMatch[1]) : 0,
-        };
-    };
+    // the card numbers are data attributes set by generate_overview_card_html
+    const parseRunStatsFromCard = (cardEl) => ({
+        runNumber: Number(cardEl.dataset.runNumber) || 0,
+        passed: Number(cardEl.dataset.passed) || 0,
+        failed: Number(cardEl.dataset.failed) || 0,
+        skipped: Number(cardEl.dataset.skipped) || 0,
+    });
 
     const reorderProjectCards = (projectId, order) => {
         const containerId = `${projectId}RunCardsContainer`;
@@ -80,4 +75,18 @@ function setup_overview_order_filters() {
     });
 }
 
-export { attach_run_card_version_listener, setup_overview_order_filters };
+// one delegated listener for the log links on the run cards, which are rebuilt on every update
+let overviewLogLinksSetup = false;
+function setup_overview_log_links() {
+    if (overviewLogLinksSetup) return;
+    overviewLogLinksSetup = true;
+    document.addEventListener("click", (event) => {
+        const link = event.target.closest?.(".run-card-log-link");
+        if (!link) return;
+        event.preventDefault();
+        event.stopPropagation();
+        open_log_from_path(link.dataset.logPath);
+    });
+}
+
+export { attach_run_card_version_listener, setup_overview_order_filters, setup_overview_log_links };

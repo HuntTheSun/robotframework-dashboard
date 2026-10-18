@@ -1,11 +1,12 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 
-vi.mock('@js/variables/settings.js', () => ({
-    settings: {
+vi.mock('@js/variables/settings.js', () => {
+    const settings = {
         switch: { suitePathsSuiteSection: false },
         show: { rounding: 6 },
-    },
-}));
+    };
+    return { settings, get_run_label: (item) => (settings.show.aliases === 'alias' ? item.run_alias : item.run_start) };
+});
 vi.mock('@js/variables/chartconfig.js', () => ({
     barConfig: {
         borderSkipped: false,
@@ -15,43 +16,30 @@ vi.mock('@js/variables/chartconfig.js', () => ({
 vi.mock('@js/variables/globals.js', () => ({
     inFullscreen: false,
     inFullscreenGraph: '',
+    filteredRuns: [
+        { run_start: '2025-01-15 10:00:00', run_alias: 'nightly-1' },
+        { run_start: '2025-01-16 10:00:00', run_alias: 'nightly-2' },
+    ],
 }));
 
-import { convert_timeline_data, parse_test_attempts, resolve_test_status, format_attempt_lines, count_attempt_flips, get_rerun_summary, group_timeline_values, get_suite_data_exclusion } from '@js/graph_data/helpers.js';
+import { convert_timeline_data, parse_test_attempts, resolve_test_status, format_attempt_lines, count_attempt_flips, get_rerun_summary, group_timeline_values, get_suite_data_exclusion, update_height, is_test_in_suite, get_run_label_by_run_start, truncate_message } from '@js/graph_data/helpers.js';
 import { settings } from '@js/variables/settings.js';
 
 
 describe('convert_timeline_data', () => {
-    it('groups datasets by status label+colors', () => {
+    it('groups the bars of all tests by their style', () => {
         const datasets = [
-            {
-                label: 'PASS',
-                data: [{ x: [0, 1], y: 'Test A' }],
-                backgroundColor: 'green',
-                borderColor: 'darkgreen',
-            },
-            {
-                label: 'PASS',
-                data: [{ x: [1, 2], y: 'Test B' }],
-                backgroundColor: 'green',
-                borderColor: 'darkgreen',
-            },
-            {
-                label: 'FAIL',
-                data: [{ x: [0, 1], y: 'Test C' }],
-                backgroundColor: 'red',
-                borderColor: 'darkred',
-            },
+            { label: 'Test A', data: [{ x: [0, 1], y: 'Test A' }], backgroundColor: 'green', borderColor: 'darkgreen' },
+            { label: 'Test B', data: [{ x: [1, 2], y: 'Test B' }], backgroundColor: 'green', borderColor: 'darkgreen' },
+            { label: 'Test C', data: [{ x: [0, 1], y: 'Test C' }], backgroundColor: 'red', borderColor: 'darkred' },
         ];
 
         const result = convert_timeline_data(datasets);
 
-        // Should group into 2 datasets: PASS and FAIL
+        // one dataset per style, each point keeps its own test row
         expect(result).toHaveLength(2);
-        const passDataset = result.find(d => d.label === 'PASS');
-        const failDataset = result.find(d => d.label === 'FAIL');
-        expect(passDataset.data).toHaveLength(2);
-        expect(failDataset.data).toHaveLength(1);
+        expect(result[0]).toMatchObject({ backgroundColor: 'green', data: [{ x: [0, 1], y: 'Test A' }, { x: [1, 2], y: 'Test B' }] });
+        expect(result[1]).toMatchObject({ backgroundColor: 'red', data: [{ x: [0, 1], y: 'Test C' }] });
     });
 
     it('preserves data coordinates', () => {
@@ -147,6 +135,18 @@ describe('resolve_test_status', () => {
     it('falls back to the final status when there is no history', () => {
         expect(resolve_test_status({ passed: 0, failed: 1, skipped: 0 }, [], 'first')).toBe('FAIL');
         expect(resolve_test_status({ passed: 0, failed: 0, skipped: 1 }, [], 'first')).toBe('SKIP');
+    });
+});
+
+describe('truncate_message', () => {
+    it('cuts a long message and adds an ellipsis', () => {
+        expect(truncate_message('a'.repeat(130))).toBe(`${'a'.repeat(120)}...`);
+        expect(truncate_message('abcdef', 3)).toBe('abc...');
+    });
+
+    it('keeps a short message and handles empty values', () => {
+        expect(truncate_message('short')).toBe('short');
+        expect(truncate_message(null)).toBe('');
     });
 });
 
@@ -278,5 +278,59 @@ describe('get_suite_data_exclusion', () => {
         const readsAfterSetup = reads;
         suites.forEach(suite => exclude(suite));
         expect(reads).toBe(readsAfterSetup);
+    });
+});
+
+describe('update_height', () => {
+    it('keeps one resize observer per graph across config builds', () => {
+        const observers = [];
+        globalThis.ResizeObserver = class {
+            constructor(callback) { this.callback = callback; this.disconnected = false; observers.push(this); }
+            observe() {}
+            disconnect() { this.disconnected = true; }
+        };
+        let item = { id: 'item1' };
+        // the content lookup returns null, so update_height stops after the observer bookkeeping
+        const vertical = { closest: (selector) => (selector === '.grid-stack-item' ? item : null), style: {} };
+        globalThis.document = { getElementById: () => vertical };
+        globalThis.window = { testMostFailedGraph: { resize: () => {} } };
+        update_height('testMostFailedVertical', 10, 'timeline');
+        update_height('testMostFailedVertical', 12, 'timeline');
+        update_height('testMostFailedVertical', 14, 'timeline');
+        expect(observers).toHaveLength(1);
+        // a re-rendered grid item gets a new observer and the old one is disconnected
+        item = { id: 'item2' };
+        update_height('testMostFailedVertical', 14, 'timeline');
+        expect(observers).toHaveLength(2);
+        expect(observers[0].disconnected).toBe(true);
+        delete globalThis.ResizeObserver;
+        delete globalThis.document;
+        delete globalThis.window;
+    });
+});
+
+describe('is_test_in_suite', () => {
+    const test = { name: 'Add Item', full_name: 'Web.Cart Rules.Add Item' };
+
+    it('matches the whole suite name, not a part of it', () => {
+        expect(is_test_in_suite(test, 'Cart Rules', false)).toBe(true);
+        expect(is_test_in_suite(test, 'Rules', false)).toBe(false);
+        expect(is_test_in_suite(test, 'Cart', false)).toBe(false);
+        expect(is_test_in_suite(test, 'All', false)).toBe(true);
+    });
+
+    it('matches the full suite name with suite paths', () => {
+        expect(is_test_in_suite(test, 'Web.Cart Rules', true)).toBe(true);
+        expect(is_test_in_suite(test, 'Cart Rules', true)).toBe(false);
+    });
+});
+
+describe('get_run_label_by_run_start', () => {
+    it('shows the label of the run with that run_start and follows the label setting', () => {
+        settings.show.aliases = 'alias';
+        expect(get_run_label_by_run_start('2025-01-16 10:00:00')).toBe('nightly-2');
+        settings.show.aliases = 'run_start';
+        expect(get_run_label_by_run_start('2025-01-16 10:00:00')).toBe('2025-01-16 10:00:00');
+        expect(get_run_label_by_run_start('unknown')).toBe('unknown');
     });
 });

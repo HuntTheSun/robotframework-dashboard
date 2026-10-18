@@ -19,6 +19,10 @@ import {
     combine_paths,
     debounce,
     strip_tz_suffix,
+    get_tz_suffix,
+    add_alert,
+    parse_metadata_items,
+    get_run_status,
 } from '@js/common.js';
 
 
@@ -353,6 +357,18 @@ describe('combine_paths', () => {
 });
 
 
+describe('get_tz_suffix', () => {
+    it('returns the offset at the end of a run_start', () => {
+        expect(get_tz_suffix('2025-01-15 09:05:03+02:00')).toBe('+02:00');
+        expect(get_tz_suffix('2025-01-15 09:05:03.123-05:00')).toBe('-05:00');
+    });
+
+    it('returns an empty string without an offset', () => {
+        expect(get_tz_suffix('2025-01-15 09:05:03')).toBe('');
+        expect(get_tz_suffix('2025-01-15 09:05:03Z')).toBe('');
+    });
+});
+
 describe('strip_tz_suffix', () => {
     it('strips +HH:MM timezone suffix', () => {
         expect(strip_tz_suffix('2025-01-15 09:05:03+02:00')).toBe('2025-01-15 09:05:03');
@@ -457,5 +473,46 @@ describe('get_project_names', () => {
             { name: 'WebshopUI', tags: '' },
         ];
         expect(get_project_names(runList)).toEqual(['WebshopAPI', 'WebshopUI', 'project_shop']);
+    });
+});
+
+describe('add_alert', () => {
+    it('does not let the timer of a replaced alert close the newer one', () => {
+        vi.useFakeTimers();
+        const container = { innerHTML: '' };
+        globalThis.document = { getElementById: () => container };
+        add_alert('first', 'success', 1000);
+        vi.advanceTimersByTime(600);
+        add_alert('second', 'success', 1000);
+        vi.advanceTimersByTime(600);
+        expect(container.innerHTML).toContain('second');
+        vi.advanceTimersByTime(500);
+        expect(container.innerHTML).toBe('');
+        vi.useRealTimers();
+        delete globalThis.document;
+    });
+});
+
+describe('parse_metadata_items', () => {
+    it('reads the items of the python list repr', () => {
+        expect(parse_metadata_items("['Browser: chromium', 'Team: Storefront']")).toEqual(['Browser: chromium', 'Team: Storefront']);
+    });
+
+    it('reads items with quotes and escapes that JSON.parse rejected', () => {
+        expect(parse_metadata_items(`["It's: fine", 'Bell: \\x07', 'Quote: \\'x\\'']`)).toEqual(["It's: fine", 'Bell: \\x07', "Quote: 'x'"]);
+    });
+
+    it('returns no items for empty or unexpected values', () => {
+        expect(parse_metadata_items('')).toEqual([]);
+        expect(parse_metadata_items(null)).toEqual([]);
+        expect(parse_metadata_items('{"not": "a list"}')).toEqual(['not', 'a list']);
+    });
+});
+
+describe('get_run_status', () => {
+    it('counts a run with only skipped tests as skipped, not passed', () => {
+        expect(get_run_status({ passed: 0, failed: 0, skipped: 3 })).toBe('skipped');
+        expect(get_run_status({ passed: 2, failed: 0, skipped: 3 })).toBe('passed');
+        expect(get_run_status({ passed: 2, failed: 1, skipped: 0 })).toBe('failed');
     });
 });

@@ -1,6 +1,6 @@
 import { settings } from '../variables/settings.js';
 import { exceptions, filteredAmount, keywords, runs, suites, tests, unified_dashboard_title } from '../variables/data.js';
-import { get_run_projects, strip_tz_suffix } from '../common.js';
+import { add_alert, get_run_projects, get_tz_suffix, parse_custom_filters, parse_metadata_items, strip_tz_suffix } from '../common.js';
 import { filteredExceptions, filteredKeywords, filteredRuns, filteredSuites, filteredTests, selectedRunSetting, selectedTagSetting } from '../variables/globals.js';
 import { setup_keywords_in_select, setup_runs_in_compare_selects, setup_suites_in_suite_select, setup_suites_in_test_select, setup_tests_in_select, setup_testtags_in_select } from './section_selects.js';
 import { filter_runs_by_suite_path, filter_suite_path_data } from './suite_path.js';
@@ -26,13 +26,24 @@ function get_transformed_data(name) {
     if (!(name in transformedDataCache.data)) {
         const sourceData = { runs, suites, tests, keywords, exceptions }[name];
         const transformed = remove_timezones(convert_timezone(remove_milliseconds(sourceData)));
-        if (name === "runs" || name === "tests") keep_raw_run_start(sourceData, transformed);
+        keep_raw_run_start(sourceData, transformed);
         transformedDataCache.data[name] = transformed;
     }
     return transformedDataCache.data[name];
 }
 
-// notes are keyed on the stored run_start; the transforms map row by row, so indexes still line up
+// the transformed data in wall-clock order, cached like the data itself. The filters after the
+// sort only drop rows, so filtering a sorted copy gives the order a sort of the result would
+function get_sorted_transformed_data(name) {
+    const key = `${name}:sorted`;
+    const transformed = get_transformed_data(name);
+    if (!(key in transformedDataCache.data)) transformedDataCache.data[key] = sort_wall_clock(transformed);
+    return transformedDataCache.data[key];
+}
+
+// the stored run_start of every row: hiding milliseconds or timezones can give two runs the same
+// run_start, so the filters match rows to runs on this one (and notes are keyed on it).
+// The transforms map row by row, so indexes still line up
 function keep_raw_run_start(sourceData, transformed) {
     if (transformed === sourceData) return;
     for (let index = 0; index < transformed.length; index++) {
@@ -64,10 +75,10 @@ function apply_custom_filter_visibility() {
 function setup_filtered_data_and_filters() {
     apply_custom_filter_visibility();
     filteredRuns = get_transformed_data("runs");
-    filteredSuites = get_transformed_data("suites");
-    filteredTests = get_transformed_data("tests");
-    filteredKeywords = get_transformed_data("keywords");
-    filteredExceptions = get_transformed_data("exceptions");
+    filteredSuites = get_sorted_transformed_data("suites");
+    filteredTests = get_sorted_transformed_data("tests");
+    filteredKeywords = get_sorted_transformed_data("keywords");
+    filteredExceptions = get_sorted_transformed_data("exceptions");
     // determine filteredRuns with all run-level filters (suite path + amount last)
     filteredRuns = filter_runs(filteredRuns);
     filteredRuns = filter_runtags(filteredRuns);
@@ -84,29 +95,28 @@ function setup_filtered_data_and_filters() {
     filteredExceptions = filter_data(filteredExceptions);
     // narrow suites/tests to the selected path prefix (runs already reduced above)
     filter_suite_path_data();
-    // re-sort all filtered data by wall-clock run_start so mixed-timezone datasets
-    // appear in the correct chronological order on graphs (timestamps may have been
-    // converted or had their offsets stripped above, so re-sort here is the source of truth)
+    // sort by wall-clock run_start so mixed-timezone datasets appear in the correct chronological
+    // order on graphs. The runs are sorted after the amount filter, which keeps the last runs in
+    // their stored order; the other data came sorted from get_sorted_transformed_data
     filteredRuns = sort_wall_clock(filteredRuns);
-    filteredSuites = sort_wall_clock(filteredSuites);
-    filteredTests = sort_wall_clock(filteredTests);
-    filteredKeywords = sort_wall_clock(filteredKeywords);
-    filteredExceptions = sort_wall_clock(filteredExceptions);
     // set titles with amount of filtered items
-    const runAmount = Object.keys(filteredRuns).length
+    const runAmount = filteredRuns.length
     const message = `<h6>showing ${runAmount} of ${filteredAmount} runs</h6>`
     document.getElementById("unifiedTitle").innerHTML
         = `${(unified_dashboard_title && !unified_dashboard_title.includes("Robot Framework Dashboard -"))
             ? unified_dashboard_title
             : "Dashboard Statistics"} (${runAmount}) ${message}`;
     document.getElementById("runTitle").innerHTML = `Run Statistics (${runAmount}) ${message}`;
-    document.getElementById("suiteTitle").innerHTML = `Suite Statistics (${Object.keys(filteredSuites).length}) ${message}`;
-    document.getElementById("testTitle").innerHTML = `Test Statistics (${Object.keys(filteredTests).length}) ${message}`;
-    document.getElementById("keywordTitle").innerHTML = `Keyword Statistics (${Object.keys(filteredKeywords).length}) ${message}`;
+    document.getElementById("suiteTitle").innerHTML = `Suite Statistics (${filteredSuites.length}) ${message}`;
+    document.getElementById("testTitle").innerHTML = `Test Statistics (${filteredTests.length}) ${message}`;
+    document.getElementById("keywordTitle").innerHTML = `Keyword Statistics (${filteredKeywords.length}) ${message}`;
     document.getElementById("compareTitle").innerHTML = `Compare Statistics ${message}`;
     document.getElementById("tablesTitle").innerHTML = `Table Statistics (${runAmount}) ${message}`;
     // update filters based on data
     setup_runs_in_compare_selects();
+    // the graphs reset the suite folder to All when they are updated (update_suite_folder_donut_graph),
+    // so the suite select is built for All as well instead of for the folder that is about to go
+    document.getElementById("suiteFolder").innerText = "All";
     setup_suites_in_suite_select();
     setup_suites_in_test_select();
     setup_testtags_in_select();
@@ -121,12 +131,9 @@ function remove_milliseconds(data) {
     return data.map(obj => {
         const rs = obj.run_start;
         const datetime = rs.slice(0, 19); // "YYYY-MM-DD HH:MM:SS"
-        // Check if the last 6 chars are a timezone offset (+HH:MM or -HH:MM)
-        const suffix = rs.slice(-6);
-        const hasTz = /^[+-]\d{2}:\d{2}$/.test(suffix);
         return {
             ...obj,
-            run_start: hasTz ? datetime + suffix : datetime
+            run_start: datetime + get_tz_suffix(rs)
         };
     });
 }
@@ -137,10 +144,7 @@ function remove_timezones(data) {
 
     return data.map(obj => {
         const rs = obj.run_start;
-        // Check if the last 6 chars are a timezone offset (+HH:MM or -HH:MM)
-        const suffix = rs.slice(-6);
-        const hasTz = /^[+-]\d{2}:\d{2}$/.test(suffix);
-        if (!hasTz) { return obj; }
+        if (!get_tz_suffix(rs)) { return obj; }
         return {
             ...obj,
             run_start: rs.slice(0, -6)
@@ -154,10 +158,7 @@ function convert_timezone(data) {
 
     return data.map(obj => {
         const rs = obj.run_start;
-        // Check if run_start has a timezone offset (+HH:MM or -HH:MM) at the end
-        const suffix = rs.slice(-6);
-        const hasTz = /^[+-]\d{2}:\d{2}$/.test(suffix);
-        if (!hasTz) { return obj; }
+        if (!get_tz_suffix(rs)) { return obj; }
 
         // Parse the run_start with its timezone offset
         const isoStr = rs.replace(" ", "T");
@@ -194,7 +195,7 @@ function convert_timezone(data) {
 // can still produce runs, so both paths always behave identically.
 function apply_run_name_filter(runs, selectedRun) {
     if (!selectedRun || selectedRun === "All") { return runs; }
-    return Object.values(runs).filter(run => run.name === selectedRun);
+    return runs.filter(run => run.name === selectedRun);
 }
 
 // function to filter run data based on the runs (aka run name) filter
@@ -235,7 +236,6 @@ function filter_runtags(runs) {
     if (selectedTagSetting != '') {
         for (const input of tagElements) {
             input.checked = false;
-            // checkbox ids are prefixed with "runTagCheckBox", the value holds the raw tag name
             if (input.value === selectedTagSetting) {
                 input.checked = true;
             }
@@ -246,7 +246,7 @@ function filter_runtags(runs) {
 
     const selectedTags = Array.from(tagElements)
         .filter(tagElement => tagElement.checked)
-        .map(tagElement => tagElement.id.replace(/^runTagCheckBox/, ""));
+        .map(tagElement => tagElement.value);
     return apply_runtag_filter(runs, selectedTags, tagMode);
 }
 
@@ -287,33 +287,20 @@ function filter_custom_filters(filteredRuns) {
 }
 
 // custom_filters strings never change after the data is decoded, so the parsed result is
-// cached: the value of one dimension is read once per run per filter pass, and the option
-// availability computation walks every run once per dimension on top of that.
-const parsedCustomFiltersCache = new Map();
-
-function parse_custom_filters(cfStr) {
-    if (!cfStr) return {};
-    const cached = parsedCustomFiltersCache.get(cfStr);
-    if (cached) return cached;
-    const result = {};
-    cfStr.split(":").forEach(part => {
-        const eq = part.indexOf("=");
-        if (eq > 0) {
-            result[part.slice(0, eq).trim()] = part.slice(eq + 1).trim();
-        }
-    });
-    parsedCustomFiltersCache.set(cfStr, result);
-    return result;
-}
-
 // the value of one custom filter dimension for a run, "None" when the run has no such key
 function get_custom_filter_value(run, dimName) {
     const value = parse_custom_filters(run.custom_filters)[dimName];
     return value === undefined ? "None" : value;
 }
 
+// the runs never change after the data is decoded and about 8 places ask for the dimensions on every
+// filter pass, so they are collected once; callers only read the result
+let customFilterDimensionsCache = { runs: null, dimensions: null };
+
 function collect_custom_filter_dimensions() {
+    if (customFilterDimensionsCache.runs === runs) return customFilterDimensionsCache.dimensions;
     const dimensions = {};
+    customFilterDimensionsCache = { runs, dimensions };
     for (const run of runs) {
         if (!run.custom_filters) continue;
         const parsed = parse_custom_filters(run.custom_filters);
@@ -354,8 +341,9 @@ function build_date_range(fromDate, fromTime, toDate, toTime) {
     if (!fromDate || !fromTime || !toDate || !toTime) {
         return null;
     }
-    const from = new Date(`${fromDate} ${fromTime}:00`);
-    const to = new Date(`${toDate} ${toTime}:59.999`);
+    // the ISO "T" form, which every browser parses as local time (Safari rejected a space)
+    const from = new Date(`${fromDate}T${fromTime}:00`);
+    const to = new Date(`${toDate}T${toTime}:59.999`);
     if (from > to) {
         return null;
     }
@@ -391,7 +379,7 @@ function filter_dates(runs) {
     }
     const dateRange = build_date_range(fromDate, fromTime, toDate, toTime);
     if (!dateRange) { // build_date_range only rejects a complete range when from is later than to
-        alert("Filter error: The selected from date + time is later than your selected to date + time. Date filter has not been applied!");
+        add_alert("Filter error: the selected from date + time is later than the selected to date + time, so the date filter is not applied.", "warning");
         return runs;
     }
     return apply_date_filter(runs, dateRange.from, dateRange.to);
@@ -446,7 +434,8 @@ function filter_amount(filteredRuns) {
 
 function apply_metadata_filter(filteredRuns, selectedMetadata) {
     if (selectedMetadata == '' || selectedMetadata == 'All' || selectedMetadata == undefined) return filteredRuns;
-    return filteredRuns.filter(run => (run.metadata || "").includes(selectedMetadata));
+    // the whole item, so "Env: prod" does not also match "Env: production"
+    return filteredRuns.filter(run => parse_metadata_items(run.metadata).includes(selectedMetadata));
 }
 
 // function to filter the runs based on the selected metadata key:value pair
@@ -455,9 +444,15 @@ function filter_metadata(filteredRuns) {
 }
 
 // function to filter suites/tests/keywords based on the already filtered runs
+let filterDataRunsCache = { runs: null, runStarts: null };
+
 function filter_data(data) {
-    const validRunStarts = new Set(filteredRuns.map(v => v.run_start));
-    let filteredData = data.filter(v => validRunStarts.has(v.run_start));
+    const stored_run_start = (row) => row.raw_run_start ?? row.run_start;
+    if (filterDataRunsCache.runs !== filteredRuns) {
+        filterDataRunsCache = { runs: filteredRuns, runStarts: new Set(filteredRuns.map(stored_run_start)) };
+    }
+    const validRunStarts = filterDataRunsCache.runStarts;
+    let filteredData = data.filter(v => validRunStarts.has(stored_run_start(v)));
     if (filteredData.length > 0 && "owner" in filteredData[0]) {
         const libraries = settings.libraries || {};
         filteredData = filteredData.filter(item => {
@@ -481,6 +476,7 @@ export {
     apply_run_name_filter,
     apply_runtag_filter,
     build_date_range,
+    filter_data,
     collect_custom_filter_dimensions,
     convert_timezone,
     dashboardPages,
@@ -490,7 +486,6 @@ export {
     get_project_version_value,
     get_run_start_date,
     get_transformed_data,
-    parse_custom_filters,
     remove_milliseconds,
     remove_timezones,
     setup_filtered_data_and_filters,

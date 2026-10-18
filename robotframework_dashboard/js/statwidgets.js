@@ -1,3 +1,4 @@
+import { escape_html } from "./escape.js";
 import { settings } from './variables/settings.js';
 import { set_local_storage_item } from './localstorage.js';
 import { setup_data_and_graphs } from './menu.js';
@@ -17,20 +18,31 @@ import {
 } from './graph_data/stats.js';
 import { STAT_WIDGET_DEFS, STAT_WIDGET_COLORS, STAT_WIDGET_BG_COLORS, TIME_PROPS } from './variables/statwidgetdefs.js';
 
+// every widget reads one value from the stats of its scope, so a scope is computed once per filter
+// pass instead of once per widget: a pass assigns new filtered arrays, which ends the cached entry
+const statsCache = new Map();
+
+function get_scope_stats(scope) {
+    const inputs = {
+        run: [filteredRuns, filteredSuites, filteredTests, filteredKeywords],
+        suite: [filteredSuites],
+        test: [filteredTests],
+        keyword: [filteredKeywords],
+    }[scope];
+    if (!inputs) return null;
+    const cached = statsCache.get(scope);
+    if (cached && cached.inputs.every((input, index) => input === inputs[index])) return cached.data;
+    const compute = { run: get_stats_data, suite: get_suite_stats_data, test: get_test_stats_data, keyword: get_keyword_stats_data }[scope];
+    const data = compute(...inputs);
+    statsCache.set(scope, { inputs, data });
+    return data;
+}
+
 function get_stat_value(statKey) {
     const dot = statKey.indexOf('.');
     const scope = statKey.slice(0, dot);
     const prop  = statKey.slice(dot + 1);
-    let data;
-    if (scope === 'run') {
-        data = get_stats_data(filteredRuns, filteredSuites, filteredTests, filteredKeywords);
-    } else if (scope === 'suite') {
-        data = get_suite_stats_data(filteredSuites);
-    } else if (scope === 'test') {
-        data = get_test_stats_data(filteredTests);
-    } else if (scope === 'keyword') {
-        data = get_keyword_stats_data(filteredKeywords);
-    }
+    const data = get_scope_stats(scope);
     if (!data) return '—';
     const val = data[prop];
     if (val === undefined || val === null) return '—';
@@ -40,13 +52,13 @@ function get_stat_value(statKey) {
 
 function build_widget_html(widget, editMode) {
     const deleteBtn = editMode
-        ? `<a class="delete-custom-stat-widget information" role="button" aria-label="Remove widget" data-title="Remove widget" data-widget-id="${widget.id}"></a>`
+        ? `<a class="delete-custom-stat-widget information" role="button" aria-label="Remove widget" data-title="Remove widget" data-widget-id="${escape_html(widget.id)}"></a>`
         : '';
     const moveBtns = editMode ? build_move_controls_html(deleteBtn) : '';
     return `<div class="stat-widget-inner">
                 ${moveBtns}
-                <h6 class="stat-widget-title" id="customStatWidget-${widget.id}-title">${widget.title}</h6>
-                <div class="stat-value ${widget.color}" id="customStatWidget-${widget.id}-value"></div>
+                <h6 class="stat-widget-title" id="customStatWidget-${escape_html(widget.id)}-title">${escape_html(widget.title)}</h6>
+                <div class="stat-value ${escape_html(widget.color)}" id="customStatWidget-${escape_html(widget.id)}-value"></div>
             </div>`;
 }
 

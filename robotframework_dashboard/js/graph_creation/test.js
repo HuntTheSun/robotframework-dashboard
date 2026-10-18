@@ -4,14 +4,18 @@ import { get_messages_data } from "../graph_data/messages.js";
 import { get_duration_deviation_data } from "../graph_data/duration_deviation.js";
 import { get_graph_config } from "../graph_data/graph_config.js";
 import { build_tooltip_meta, lookup_tooltip_meta, format_status } from "../graph_data/tooltip_helpers.js";
-import { update_height, format_attempt_lines, get_test_section_predicate } from "../graph_data/helpers.js";
+import { update_height, format_attempt_lines, get_test_section_predicate, get_run_label_by_run_start } from "../graph_data/helpers.js";
 import { open_log_file } from "../log.js";
 import { format_duration } from "../common.js";
 import { inFullscreen, inFullscreenGraph, ignoreSkips, ignoreSkipsRecent, filteredTests } from "../variables/globals.js";
 import { settings, get_run_label } from "../variables/settings.js";
 import { create_chart, update_chart } from "./chart_factory.js";
-import { build_most_failed_config, build_most_flaky_config, build_most_time_consuming_config } from "./config_helpers.js";
-import { get_test_stats_data } from "../graph_data/stats.js";
+import {
+    apply_timeline_defaults,
+    build_most_failed_config,
+    build_most_flaky_config,
+    build_most_time_consuming_config,
+} from "./config_helpers.js";
 import { set_chart_note_target, test_note_target, timeline_test_note_target, test_note_lines } from "../notes/chart_notes.js";
 
 function _build_test_statistics_config() {
@@ -29,50 +33,8 @@ function _build_test_statistics_timeline_config() {
     const runStarts = data[1]
     const testMetaMap = data[2]
     var config = get_graph_config("timeline", graphData, "", "Run", "Test");
-    config.options.plugins.tooltip = {
-        callbacks: {
-            label: function (context) {
-                const runLabel = runStarts[context.raw.x[0]];
-                const testLabel = context.raw.y;
-                const key = `${testLabel}::${context.raw.x[0]}`;
-                const meta = testMetaMap[key];
-                const lines = [`Run: ${runLabel}`];
-                if (meta) {
-                    lines.push(`Status: ${meta.status}`);
-                    lines.push(`Duration: ${format_duration(parseFloat(meta.elapsed_s))}`);
-                    if (meta.message) {
-                        const truncated = meta.message.length > 120 ? meta.message.substring(0, 120) + "..." : meta.message;
-                        lines.push(`Message: ${truncated}`);
-                    }
-                    lines.push(...format_attempt_lines(meta.attempts));
-                    lines.push(...test_note_lines(meta));
-                }
-                return lines;
-            },
-        },
-    };
-    config.options.scales.x = {
-        ticks: {
-            minRotation: 45,
-            maxRotation: 45,
-            stepSize: 1,
-            callback: function (value, index, ticks) {
-                return runStarts[this.getLabelForValue(value)];
-            },
-        },
-        title: {
-            display: settings.show.axisTitles,
-            text: "Run",
-        },
-        type: "timelineScale",
-    };
-    config.options.onClick = (event, chartElement) => {
-        if (chartElement.length) {
-            open_log_file(event, chartElement, runStarts)
-        }
-    };
-    set_chart_note_target("testStatisticsGraph", timeline_test_note_target(testMetaMap, runStarts));
-    if (!settings.show.dateLabels) { config.options.scales.x.ticks.display = false }
+    apply_timeline_defaults(config, runStarts, testMetaMap, "test");
+    set_chart_note_target("testStatisticsGraph", timeline_test_note_target(testMetaMap, runStarts.map(get_run_label_by_run_start)));
     update_height("testStatisticsVertical", config.data.labels.length, "timeline");
     return config;
 }
@@ -158,10 +120,7 @@ function _build_test_statistics_line_config() {
                                 `Run: ${runLabel}`,
                                 `Duration: ${format_duration(parseFloat(point.elapsed))}`,
                             ];
-                            if (point.message) {
-                                const truncated = point.message.length > 120 ? point.message.substring(0, 120) + "..." : point.message;
-                                lines.push(`Message: ${truncated}`);
-                            }
+                            if (point.message) lines.push(`Message: ${truncate_message(point.message)}`);
                             lines.push(...format_attempt_lines(point.attempts));
                             lines.push(...test_note_lines(point));
                             return lines;
@@ -203,10 +162,7 @@ function _build_test_duration_config() {
         const meta = lookup_tooltip_meta(tooltipMeta, tooltipItems);
         if (!meta) return '';
         const lines = [`Status: ${format_status(meta)}`];
-        if (meta.message) {
-            const truncated = meta.message.length > 120 ? meta.message.substring(0, 120) + '...' : meta.message;
-            lines.push(`Message: ${truncated}`);
-        }
+        if (meta.message) lines.push(`Message: ${truncate_message(meta.message)}`);
         return lines;
     };
     if (!settings.show.dateLabels) { config.options.scales.x.ticks.display = false }
@@ -251,54 +207,13 @@ function _build_test_messages_config() {
         delete config.options.onClick
     } else if (settings.graphTypes.testMessagesGraphType == "timeline") {
         config = get_graph_config("timeline", graphData, `Top ${limit}`, "Run", "Message");
-        config.options.plugins.tooltip = {
-            callbacks: {
-                label: function (context) {
-                    const runLabel = callbackData[context.raw.x[0]];
-                    const testLabel = context.raw.y;
-                    const key = `${testLabel}::${context.raw.x[0]}`;
-                    const meta = pointMeta ? pointMeta[key] : null;
-                    if (!meta) return `Run: ${runLabel}`;
-                    const lines = [
-                        `Run: ${runLabel}`,
-                        `Status: ${meta.status}`,
-                        `Duration: ${format_duration(parseFloat(meta.elapsed_s))}`,
-                    ];
-                    if (meta.message) {
-                        const truncated = meta.message.length > 120 ? meta.message.substring(0, 120) + "..." : meta.message;
-                        lines.push(`Message: ${truncated}`);
-                    }
-                    return lines;
-                },
-            },
-        };
-        config.options.scales.x = {
-            ticks: {
-                minRotation: 45,
-                maxRotation: 45,
-                stepSize: 1,
-                callback: function (value, index, ticks) {
-                    return callbackData[this.getLabelForValue(value)];
-                },
-            },
-            title: {
-                display: settings.show.axisTitles,
-                text: "Run",
-            },
-            type: "timelineScale",
-        };
-        config.options.onClick = (event, chartElement) => {
-            if (chartElement.length) {
-                open_log_file(event, chartElement, callbackData)
-            }
-        };
+        apply_timeline_defaults(config, callbackData, pointMeta, "message");
         config.options.scales.y.ticks = {
             callback: function (value, index, ticks) {
                 return this.getLabelForValue(value).slice(0, 40);
             },
             autoSkip: false,
         };
-        if (!settings.show.dateLabels) { config.options.scales.x.ticks.display = false }
     }
     update_height("testMessagesVertical", config.data.labels.length, settings.graphTypes.testMessagesGraphType);
     return config;
@@ -347,20 +262,6 @@ function update_test_most_failed_graph() { update_chart("testMostFailedGraph", _
 function update_test_recent_most_failed_graph() { update_chart("testRecentMostFailedGraph", _build_test_recent_most_failed_config); }
 function update_test_most_time_consuming_graph() { update_chart("testMostTimeConsumingGraph", _build_test_most_time_consuming_config); }
 
-function create_test_stat_widgets() {
-    const data = get_test_stats_data(filteredTests);
-    const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.innerText = val; };
-    setVal('testStatExecutedValue',  data.totalTests);
-    setVal('testStatUniqueValue',    data.uniqueTests);
-    setVal('testStatPassedValue',    data.passedTests);
-    setVal('testStatFailedValue',    data.failedTests);
-    setVal('testStatSkippedValue',   data.skippedTests);
-    setVal('testStatPassRateValue',  data.passRate);
-    setVal('testStatTotalTimeValue', format_duration(data.totalTime));
-    setVal('testStatAvgTimeValue',   format_duration(data.avgTime));
-}
-function update_test_stat_widgets() { create_test_stat_widgets(); }
-
 export {
     create_test_statistics_graph,
     create_test_duration_graph,
@@ -371,7 +272,6 @@ export {
     create_test_most_failed_graph,
     create_test_recent_most_failed_graph,
     create_test_most_time_consuming_graph,
-    create_test_stat_widgets,
     update_test_statistics_graph,
     update_test_duration_graph,
     update_test_duration_deviation_graph,
@@ -381,5 +281,4 @@ export {
     update_test_most_failed_graph,
     update_test_recent_most_failed_graph,
     update_test_most_time_consuming_graph,
-    update_test_stat_widgets,
 };

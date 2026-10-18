@@ -1,5 +1,5 @@
 import { runs, suites, tests, server, use_logs } from './variables/data.js';
-import { format_date_to_string, transform_file_path, combine_paths } from './common.js';
+import { add_alert, format_date_to_string, transform_file_path, combine_paths } from './common.js';
 import { settings, get_run_label } from './variables/settings.js';
 import { filteredRuns } from './variables/globals.js';
 
@@ -19,24 +19,27 @@ function open_log_file(event, chartElement, callbackData = undefined, directRunS
     } else if (graphType == "line" && !graphId.includes("Statistics")) {
         runStart = format_date_to_string(new Date(chartElement[0].element.$context.raw.x))
     } else if (graphId == "compareStatisticsGraph" || graphId == "compareSuiteDurationGraph") {
-        const index = chartElement[0].datasetIndex
-        runStart = event.chart.data.datasets[index].label
+        const dataset = event.chart.data.datasets[chartElement[0].datasetIndex]
+        runStart = dataset.runStart ?? dataset.label
     } else {
+        // labels can repeat (run name labels), the run_start of the column can't
         const index = chartElement[0].index
-        runStart = event.chart.data.labels[index]
+        runStart = event.chart.data.runStarts?.[index] ?? event.chart.data.labels[index]
     }
     // Match against filteredRuns: its run_start has been timezone-converted/stripped to
     // match what the chart actually displays. Falling back to the original `runs` global
     // (UTC strings) breaks when the user has the "convert to local timezone" toggle on,
     // since the chart label no longer equals the UTC run_start.
-    var output = filteredRuns.find(run => run.run_start.slice(0, 19) === runStart.slice(0, 19))
+    // an exact match first: two runs can start in the same second, which only the milliseconds tell apart
+    var output = filteredRuns.find(run => run.run_start === runStart)
+    if (!output) { output = filteredRuns.find(run => run.run_start.slice(0, 19) === runStart.slice(0, 19)) }
     if (!output) { output = filteredRuns.find(run => get_run_label(run) === runStart) }
     // Fallback to the raw runs array for safety (e.g. if the run was filtered out)
     if (!output) { output = runs.find(run => run.run_start.slice(0, 19) === runStart.slice(0, 19)) }
     if (!output) { output = runs.find(run => get_run_label(run) === runStart) }
     var path = output ? output.path : ""
     if (path == "") {
-        alert("Log file error: this output didn't have a path in the database so the log file cannot be found!");
+        add_alert("Log file error: this output has no path in the database, so its log file cannot be found.", "warning");
         return
     }
     path = update_log_path_with_id(path, graphId, chartElement, event, directTestName)
@@ -51,7 +54,9 @@ function open_log_from_path(path) {
     }
     var fileUrl = ""
     if (server) { // server url
-        fileUrl = `/log?path=${path}`
+        // the suite/test anchor of update_log_path_with_id stays outside the encoded query value
+        const anchor = path.match(/#s\d[\w-]*$/)?.[0] ?? "";
+        fileUrl = `/log?path=${encodeURIComponent(path.slice(0, path.length - anchor.length))}${anchor}`
     } else if (/^[A-Za-z]:/.test(path) || path.startsWith("/")) { // absolute path
         if (window.location.href.includes("file:///")) { // local machine url
             fileUrl = `file:///${path}`
@@ -61,7 +66,7 @@ function open_log_from_path(path) {
     } else { // relative path — resolve against the dashboard's own location
         fileUrl = new URL(path, window.location.href).href
     }
-    const win = window.open(fileUrl, "_blank")
+    window.open(fileUrl, "_blank")
 }
 
 // function to open the log when clicking on the labels
@@ -70,23 +75,34 @@ function open_log_from_label(chart, click) {
     let resetCoordinates = chart.canvas.getBoundingClientRect();
     const xCoor = click.clientX - resetCoordinates.left;
     const yCoor = click.clientY - resetCoordinates.top;
-    const { data, scales: { x: { top, bottom, left, height, width, ticks } } } = chart;
-    const right = width / ticks.length;
-
-    for (let i = 0; i < ticks.length; i++) {
-        if (xCoor >= left + (right * i) && xCoor <= left + right + (right * i) && yCoor >= top && yCoor <= bottom) {
-            var run
-            const identifier = chart.config._config.options.indexAxis === "y" ? Object.values(ticks).map(item => item.label) : data.labels // exception for timelines
-            run = filteredRuns.find(run => get_run_label(run) === identifier[i])
-            if (run) {
-                const path = transform_file_path(run.path)
-                if (path == "") {
-                    alert("Log file error: this output didn't have a path in the database so the log file cannot be found!");
-                    return
-                }
-                open_log_from_path(path)
-            }
+    const xScale = chart.scales.x;
+    const ticks = xScale.ticks;
+    if (ticks.length === 0 || yCoor < xScale.top || yCoor > xScale.bottom || xCoor < xScale.left || xCoor > xScale.right) return;
+    // a timeline's linear axis draws the label of run N halfway between N and N + 1
+    const isTimeline = chart.config._config.options.indexAxis === "y";
+    const pixel_of = (i) => isTimeline ? xScale.getPixelForValue(ticks[i].value + 0.5) : xScale.getPixelForTick(i);
+    // the tick nearest to the click, by its own pixel position: Chart.js skips ticks on a crowded
+    // axis, so the tick index is not the label index and the ticks are not spread evenly
+    let nearest = 0;
+    for (let i = 1; i < ticks.length; i++) {
+        if (Math.abs(pixel_of(i) - xCoor) < Math.abs(pixel_of(nearest) - xCoor)) nearest = i;
+    }
+    const spacing = ticks.length > 1 ? Math.abs(pixel_of(1) - pixel_of(0)) : xScale.width;
+    if (Math.abs(pixel_of(nearest) - xCoor) > spacing / 2) return;
+    // the tick value is the index of the column: its run_start when the graph data carries it, else its label
+    const tick = ticks[nearest];
+    const runStart = chart.data.runStarts?.[tick.value];
+    const identifier = isTimeline ? tick.label : (chart.data.labels?.[tick.value] ?? tick.label);
+    const run = runStart !== undefined
+        ? filteredRuns.find(run => run.run_start === runStart)
+        : filteredRuns.find(run => get_run_label(run) === identifier)
+    if (run) {
+        const path = transform_file_path(run.path)
+        if (path == "") {
+            add_alert("Log file error: this output has no path in the database, so its log file cannot be found.", "warning");
+            return
         }
+        open_log_from_path(path)
     }
 }
 

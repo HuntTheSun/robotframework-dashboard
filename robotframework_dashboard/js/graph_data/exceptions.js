@@ -45,7 +45,6 @@ function get_exceptions_data(graphType, filteredData) {
     } else if (graphType === "timeline") {
         const labels = [];
         const runStartsSet = new Set();
-        const runLabelsSet = new Set();
         let count = 0;
         for (const [message, entries] of sortedData) {
             if (count === limit) break;
@@ -59,9 +58,18 @@ function get_exceptions_data(graphType, filteredData) {
         var datasets = [];
         let runAxis = 0;
         const pointMeta = {};
+        // the entries of every label grouped by run once
+        const entriesByLabelAndRun = new Map(labels.map(label => {
+            const byRun = new Map();
+            for (const entry of data.get(label) || []) {
+                if (!byRun.has(entry.run_start)) byRun.set(entry.run_start, []);
+                byRun.get(entry.run_start).push(entry);
+            }
+            return [label, byRun];
+        }));
         for (const runStart of runStarts) {
             for (const label of labels) {
-                const entries = (data.get(label) || []).filter(e => e.run_start === runStart);
+                const entries = entriesByLabelAndRun.get(label).get(runStart) ?? [];
                 if (entries.length > 0) {
                     const entry = entries[0];
                     pointMeta[`${label}::${runAxis}`] = {
@@ -73,19 +81,16 @@ function get_exceptions_data(graphType, filteredData) {
                         data: [{ x: [runAxis, runAxis + 1], y: label }],
                         ...failedConfig,
                     });
-                    runLabelsSet.add(get_run_label(entry));
                 }
             }
             runAxis++;
         }
         datasets = convert_timeline_data(datasets);
-        const runStartsArray = (settings.show.aliases === "alias" || settings.show.aliases === "run_name")
-            ? Array.from(runLabelsSet) : runStarts;
         const graphData = {
             labels,
             datasets,
         };
-        return [graphData, runStartsArray, pointMeta];
+        return [graphData, runStarts, pointMeta];
     }
 }
 

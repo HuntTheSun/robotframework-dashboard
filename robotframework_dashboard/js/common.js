@@ -79,8 +79,8 @@ function parse_run_start(run_start) {
     if (!run_start) return null;
     let value = String(run_start).trim();
     let timezone = "";
-    const suffix = value.slice(-6);
-    if (/^[+-]\d{2}:\d{2}$/.test(suffix)) {
+    const suffix = get_tz_suffix(value);
+    if (suffix) {
         timezone = suffix;
         value = value.slice(0, -6);
     } else if (value.endsWith("Z")) {
@@ -124,8 +124,8 @@ function format_run_start_exact(run_start) {
     if (!run_start) return "";
     let value = String(run_start).trim();
     let timezone = "";
-    const suffix = value.slice(-6);
-    if (/^[+-]\d{2}:\d{2}$/.test(suffix)) {
+    const suffix = get_tz_suffix(value);
+    if (suffix) {
         timezone = ` ${suffix}`;
         value = value.slice(0, -6);
     } else if (value.endsWith("Z")) {
@@ -185,6 +185,8 @@ function combine_paths(baseUrlStr, relativePath) {
 }
 
 // function to add an alert to the page
+let alertTimeoutId = null;
+
 function add_alert(message, category, timeout = 5000) {
     const alertHTML = `<div class="row alert alert-${category} alert-dismissible" role="alert">
                 <div class="col">${message}</div>
@@ -196,7 +198,9 @@ function add_alert(message, category, timeout = 5000) {
             </div>`
     document.getElementById("alertContainer").innerHTML = alertHTML
 
-    setTimeout(() => {
+    // the container holds one alert, so the timer of a replaced alert must not close the new one
+    clearTimeout(alertTimeoutId);
+    alertTimeoutId = setTimeout(() => {
         close_alert()
     }, timeout);
 }
@@ -295,9 +299,13 @@ function parse_test_tags(value) {
     return String(value).replace(/^\[|\]$/g, "").split(",").map(tag => tag.trim()).filter(Boolean);
 }
 
-function strip_tz_suffix(s) {
+function get_tz_suffix(s) {
     const suffix = s.slice(-6);
-    return /^[+-]\d{2}:\d{2}$/.test(suffix) ? s.slice(0, -6) : s;
+    return /^[+-]\d{2}:\d{2}$/.test(suffix) ? suffix : "";
+}
+
+function strip_tz_suffix(s) {
+    return get_tz_suffix(s) ? s.slice(0, -6) : s;
 }
 
 // a run belongs to one project per project_* run tag and always to the project of its run
@@ -313,6 +321,40 @@ function get_run_projects(run) {
     return projects;
 }
 
+// metadata is stored as a python list repr: "['Browser: chromium', 'Team: Storefront']". Each item is read
+// as a quoted string, so a repr escape such as \x07 can't break the parsing. Metadata strings never change
+// after the data is decoded, so the result is cached
+const parsedMetadataCache = new Map();
+
+// cached: the value of one dimension is read once per run per filter pass, and the option
+// availability computation walks every run once per dimension on top of that.
+const parsedCustomFiltersCache = new Map();
+
+function parse_custom_filters(cfStr) {
+    if (!cfStr) return {};
+    const cached = parsedCustomFiltersCache.get(cfStr);
+    if (cached) return cached;
+    const result = {};
+    String(cfStr).split(":").forEach(part => {
+        const eq = part.indexOf("=");
+        if (eq > 0) {
+            result[part.slice(0, eq).trim()] = part.slice(eq + 1).trim();
+        }
+    });
+    parsedCustomFiltersCache.set(cfStr, result);
+    return result;
+}
+
+function parse_metadata_items(metadata) {
+    if (!metadata) return [];
+    const cached = parsedMetadataCache.get(metadata);
+    if (cached) return cached;
+    const items = (String(metadata).match(/'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"/g) || [])
+        .map(item => item.slice(1, -1).replace(/\\(['"\\])/g, "$1"));
+    parsedMetadataCache.set(metadata, items);
+    return items;
+}
+
 // every overview project (run names and project_ tags) found in a list of runs, sorted. A name
 // and a tag that are spelled the same are one project, like the overview's own grouping.
 function get_project_names(runList) {
@@ -321,6 +363,14 @@ function get_project_names(runList) {
         for (const project of get_run_projects(run)) names.add(project.replace(/^(tag|name):/, ""));
     }
     return [...names].sort();
+}
+
+// one status per run, shared by the overview cards, their pass rates and the date histogram:
+// a run with only skipped tests is skipped, not passed
+function get_run_status(run) {
+    if (run.failed > 0) { return "failed"; }
+    if (run.skipped > 0 && run.passed === 0) { return "skipped"; }
+    return "passed";
 }
 
 function generate_id() {
@@ -389,7 +439,11 @@ export {
     parse_test_tags,
     get_run_projects,
     get_project_names,
+    parse_metadata_items,
+    parse_custom_filters,
+    get_tz_suffix,
     generate_id,
+    get_run_status,
     apply_bg_class,
     fill_color_picker,
     build_move_controls_html,

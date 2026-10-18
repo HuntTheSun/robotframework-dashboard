@@ -1,14 +1,17 @@
+import { escape_html } from "../escape.js";
 import { get_graph_config } from '../graph_data/graph_config.js';
 import {
     compare_to_average,
     transform_file_path,
     format_duration,
+    get_run_status,
     format_relative_time,
     format_run_start_exact,
     get_project_names,
     debounce,
     show_loading_overlay,
     hide_loading_overlay,
+    parse_custom_filters,
 } from '../common.js';
 import { update_menu } from '../menu.js';
 import { setup_collapsables } from '../eventlisteners/collapsables.js';
@@ -34,11 +37,10 @@ import {
     areGroupedProjectsPrepared,
     filteredRuns,
     overviewProjectNavFilter,
-    escape_html_for_merge,
 } from '../variables/globals.js';
 import { runs, use_logs } from '../variables/data.js';
 import { get_rerun_summary } from '../graph_data/helpers.js';
-import { parse_custom_filters, get_hidden_custom_filters, get_transformed_data } from '../filter/pipeline.js';
+import { get_hidden_custom_filters, get_transformed_data } from '../filter/pipeline.js';
 import { clear_all_filters, update_filter_active_indicator } from '../filter/controls.js';
 
 // rerun summary (rebot --merge attempt history) per run. The run cards get their run_start from
@@ -162,13 +164,13 @@ function generate_overview_card_html(
     const showRunNumber = !(isForOverview && isTotalStats);
     const runNumberHtml = showRunNumber ? `<div class="col-auto"><h5>#${runNumber}</h5></div>` : '';
     let smallVersionHtml = `
-        <div id="${projectName}RunCardVersion${idPostfix}"
+        <div id="${escape_html(projectName)}RunCardVersion${idPostfix}"
         class="run-card-small-version"
         title="Click to filter for project and version"
-        data-projectVersion="${normalizedProjectVersion}"
+        data-projectVersion="${escape_html(normalizedProjectVersion)}"
         data-js-target="apply-version-filter">
             <div class="text-muted">Version:</div>
-            <div>${normalizedProjectVersion}</div>
+            <div>${escape_html(normalizedProjectVersion)}</div>
         </div>`;
     if (isTotalStats) {
         smallVersionHtml = '';
@@ -182,7 +184,7 @@ function generate_overview_card_html(
             .filter(key => !hiddenCustomFilters.includes(key))
             .map(key => `
                 <div class="run-card-custom-filter" title="Custom filter attribute">
-                    <span class="text-muted">${escape_html_for_merge(key)}:</span> ${escape_html_for_merge(parsedCustomFilters[key])}
+                    <span class="text-muted">${escape_html(key)}:</span> ${escape_html(parsedCustomFilters[key])}
                 </div>
             `).join('');
         if (customFilterRows) {
@@ -191,25 +193,23 @@ function generate_overview_card_html(
     }
     // for project bars
     const runsForProject = projects_by_name[projectName] ?? projects_by_tag[projectName] ?? [];
-    const projectHasVersions = runsForProject.some(r => r.project_version != null && r.project_version !== "None");
+    const projectHasVersions = project_runs_have_versions(runsForProject);
     // for overview statistics
     // Preserve the original project name (used for logic like tag-detection),
     // but compute a display name that omits the 'project_' prefix when prefixes are hidden.
     const originalProjectName = projectName;
-    const projectEverHasVersions = runs
-        .filter(r => r.name === originalProjectName)
-        .some(r => r.project_version != null && r.project_version !== "None");
+    const projectEverHasVersions = project_name_ever_has_versions(originalProjectName);
     const displayProjectName = settings.show.prefixes ? projectName : projectName.replace(/^project_/, '');
     projectName = displayProjectName;
     let cardTitle = `
-            <h5 class="card-title mb-0 fw-semibold">${displayProjectName}</h5>
+            <h5 class="card-title mb-0 fw-semibold">${escape_html(displayProjectName)}</h5>
         `;
     if (!isForOverview) {
         // Project bar cards: customize based on project type
         if (originalProjectName.startsWith('project_')) {
             // Tagged projects: display name with inline version
             cardTitle = `
-                <h5 class="card-title mb-0 fw-semibold">${stats[5]}, <span class="text-muted">Version:</span> ${normalizedProjectVersion}</h5>
+                <h5 class="card-title mb-0 fw-semibold">${escape_html(stats[5])}, <span class="text-muted">Version:</span> ${escape_html(normalizedProjectVersion)}</h5>
             `;
         } else if (projectHasVersions || projectEverHasVersions) {
             // Non-tagged projects with versions: interactive version title
@@ -219,7 +219,7 @@ function generate_overview_card_html(
                 data-js-target="apply-version-filter">
                     <h5 class="card-title mb-0 d-inline text-muted">Version:</h5>
                     <h5 class="card-title mb-0 d-inline fw-semibold">
-                        ${normalizedProjectVersion}
+                        ${escape_html(normalizedProjectVersion)}
                     </h5>
                 </div>
             `;
@@ -233,7 +233,8 @@ function generate_overview_card_html(
     }
     const totalStatsHeader = isTotalStats ? `<div>Run Stats</div>` : '';
     const totalStatsAverage = isTotalStats ? `<div>Average Run Duration</div>` : '';
-    const logLinkHtml = log_name ? `<a href="#" onclick="event.stopPropagation(); open_log_from_path('${log_path}'); return false;" target="_blank">${log_name}</a>` : '';
+    // opened by the delegated listener of setup_overview_log_links, the path stays data
+    const logLinkHtml = log_name ? `<a href="#" class="run-card-log-link" data-log-path="${escape_html(log_path)}">${escape_html(log_name)}</a>` : '';
     // relative run time (e.g. "3 hours 20 minutes ago") with the exact datetime as tooltip
     const relativeRunTime = isTotalStats ? '' : format_relative_time(runStart);
     const runTimeHtml = relativeRunTime
@@ -245,7 +246,8 @@ function generate_overview_card_html(
         ? `<div class="blue-text text-nowrap information" data-title="${reruns.reran} tests were re-executed after failing, ${reruns.recovered} of them passed on a rerun">Rerun: ${reruns.reran} (fixed ${reruns.recovered})</div>`
         : '';
     return `
-    <div class="col-4 overview-card" id="${projectNameForElementId}Card${idPostfix}" data-project-version="${normalizedProjectVersion}">
+    <div class="col-4 overview-card" id="${escape_html(projectNameForElementId)}Card${idPostfix}" data-project-version="${escape_html(normalizedProjectVersion)}"
+        data-run-number="${Number(runNumber) || 0}" data-passed="${Number(stats[0]) || 0}" data-failed="${Number(stats[1]) || 0}" data-skipped="${Number(stats[2]) || 0}">
         <div class="card border-3 border-${status}">
             <div class="card-body">
                 <div class="row">
@@ -256,7 +258,7 @@ function generate_overview_card_html(
                 </div>
                 <div class="row">
                     <div class="col-4 overview-canvas">
-                        <canvas id="${projectNameForElementId}Graph${idPostfix}"></canvas>
+                        <canvas id="${escape_html(projectNameForElementId)}Graph${idPostfix}"></canvas>
                     </div>
                     <div class="col-3 d-flex align-items-center">
                         <div>
@@ -270,11 +272,11 @@ function generate_overview_card_html(
                     <div class="col-5 d-flex align-items-center" style="overflow:auto;">
                         <div>
                             ${totalStatsAverage}
-                            <div class="${compares}" id="${projectNameForElementId}RunCardCompares${idPostfix}" title="${isTotalStats ? 'Average duration across runs' : 'Run duration'}">
+                            <div class="${compares}" id="${escape_html(projectNameForElementId)}RunCardCompares${idPostfix}" title="${isTotalStats ? 'Average duration across runs' : 'Run duration'}">
                                 <span class="clock-icon">
                                     ${svg}
                                 </span>
-                                <i id="${projectNameForElementId}RunCardComparesValue${idPostfix}" value="${rounded_duration}">
+                                <i id="${escape_html(projectNameForElementId)}RunCardComparesValue${idPostfix}" value="${rounded_duration}">
                                     ${rounded_duration}
                                 </i>
                             </div>
@@ -291,29 +293,16 @@ function generate_overview_card_html(
     </div>`;
 }
 
-function clear_project_filter() {
-    document.getElementById("runs").value = "All";
-    document.getElementById("runTagCheckBoxesFilter").value = "";
-    const tagElements = document.getElementById("runTag").getElementsByTagName("input");
-    for (const input of tagElements) {
-        input.checked = false;
-        input.parentElement.classList.remove("d-none"); //show filtered rows
-        if (input.id == "runTagCheckBoxAll") input.checked = true;
-    }
-    const tagModeEl = document.getElementById("tagMode");
-    if (tagModeEl) tagModeEl.value = "AND";
-    update_filter_active_indicator("runTagCheckBoxAll", "filterRunTagSelectedIndicator");
-}
-
 function set_filter_show_current_project(projectName) {
     // remember that this filter came from an overview card so returning to the overview
     // page can drop it again and show all projects instead of this one (issue #348)
     overviewProjectNavFilter.project = projectName;
     if (projectName.startsWith("project_")) {
         selectedTagSetting = projectName;
-        setTimeout(() => { // hack to prevent update_menu calls from hinderance
+        // the next filter pass checks the tag (filter_runtags), so the indicator follows once it is done
+        document.addEventListener("graphs-finalized", () => {
             update_filter_active_indicator("runTagCheckBoxAll", "filterRunTagSelectedIndicator");
-        }, 500);
+        }, { once: true });
 
     } else {
         selectedRunSetting = projectName;
@@ -381,17 +370,17 @@ function create_project_bar(projectName, projectRuns, totalRunsAmount, passRate)
 See Settings > Overview for more options.`;
 
     const projectCard = `
-    <div class="card mb-3 overview-bar overview-project-card" id="${projectName}Section">
+    <div class="card mb-3 overview-bar overview-project-card" id="${escape_html(projectName)}Section">
             <div class="card-header">
                 <div class="row">
                     <div class="col-auto align-self-center">
-                        <div class="btn btn-sm collapse-icon" id="collapse${projectName}Body">
+                        <div class="btn btn-sm collapse-icon" id="collapse${escape_html(projectName)}Body">
                             ${arrowRight}
                         </div>
                     </div>
                     <div class="col-3">
-                        <span class="information info-label" data-title="${projectInformation}">
-                            <h4 class="d-inline">${displayProjectName}</h4>
+                        <span class="information info-label" data-title="${escape_html(projectInformation)}">
+                            <h4 class="d-inline">${escape_html(displayProjectName)}</h4>
                             <span class="info-icon-small ms-1"></span>
                         </span>
                         <h6>Total Runs: ${totalRunsAmount} | Passed Runs: ${passRate}%</h6>
@@ -399,10 +388,10 @@ See Settings > Overview for more options.`;
                     <div class="d-flex flex-wrap align-items-start col align-items-center">
                         <div class="col-auto me-1 sort-filter">
                             <div class="btn-group">
-                                <label class="form-label mb-0 information info-label" for="${projectName}SectionOrder" data-title="Sort runs by: Most Recent, Oldest, Most Failed, Most Skipped, or Most Passed.">Sort <span class="info-icon-small ms-1"></span></label>
+                                <label class="form-label mb-0 information info-label" for="${escape_html(projectName)}SectionOrder" data-title="Sort runs by: Most Recent, Oldest, Most Failed, Most Skipped, or Most Passed.">Sort <span class="info-icon-small ms-1"></span></label>
                             </div>
                             <div class="btn-group">
-                                <select class="form-select form-select-sm section-order-filter" id="${projectName}SectionOrder">
+                                <select class="form-select form-select-sm section-order-filter" id="${escape_html(projectName)}SectionOrder">
                                     <option value="newest" selected>Most Recent</option>
                                     <option value="oldest">Oldest</option>
                                     <option value="most failed">Most Failed</option>
@@ -412,14 +401,14 @@ See Settings > Overview for more options.`;
                             </div>
                         </div>
                         <div class="col-auto ms-auto">
-                            <a class="move-up-section information" id="${projectName}SectionMoveUp" hidden></a>
-                            <a class="move-down-section information" id="${projectName}SectionMoveDown" hidden></a>
+                            <a class="move-up-section information" id="${escape_html(projectName)}SectionMoveUp" hidden></a>
+                            <a class="move-down-section information" id="${escape_html(projectName)}SectionMoveDown" hidden></a>
                         </div>
                     </div>
                 </div>
             </div>
-            <div class="card-body" id="${projectName}Body" hidden="">
-                <div id="${projectName}RunCardsContainer" class="project-run-cards-container"></div>
+            <div class="card-body" id="${escape_html(projectName)}Body" hidden="">
+                <div id="${escape_html(projectName)}RunCardsContainer" class="project-run-cards-container"></div>
             </div>
         </div>
     `;
@@ -444,7 +433,7 @@ function create_project_overview() {
 // creates overview project section
 function create_project_cards_container(projectName, projectRuns, percent = null) {
     const totalRunsAmount = projectRuns.length;
-    const passedRunsAmount = projectRuns.filter(run => run.failed === 0).length;
+    const passedRunsAmount = projectRuns.filter(run => get_run_status(run) === "passed").length;
     const passRate = ((passedRunsAmount / totalRunsAmount) * 100).toFixed(2);
     const cardsContainer = document.getElementById(`${projectName}RunCardsContainer`);
     const durations = projectRuns.map(r => r.elapsed_s);
@@ -475,11 +464,6 @@ function create_overview_latest_graphs(preFilteredRuns = null) {
     destroy_overview_donuts(overviewCardsContainer);
     overviewCardsContainer.innerHTML = '';
     const allProjects = { ...projects_by_name, ...projects_by_tag };
-    const durationsByProject = {};
-    for (const [projectName, projectRuns] of Object.entries(allProjects)) {
-        const durations = projectRuns.map(r => r.elapsed_s);
-        durationsByProject[projectName] = durations;
-    }
     let latestRunByProject = {};
     if (!preFilteredRuns) {
         settings.switch.runName && Object.assign(latestRunByProject, latestRunByProjectName);
@@ -509,7 +493,7 @@ function create_overview_latest_graphs(preFilteredRuns = null) {
     for (const [projectName, latestRun] of Object.entries(latestRunByProject)) {
         const projectRuns = allProjects[projectName];
         const totalRunsAmount = projectRuns.length;
-        const passedRunsAmount = projectRuns.filter(run => run.failed === 0).length;
+        const passedRunsAmount = projectRuns.filter(run => get_run_status(run) === "passed").length;
         const passRate = ((passedRunsAmount / totalRunsAmount) * 100).toFixed(2);
         const projectRunDurations = projectRuns.map(run => run.elapsed_s);
 
@@ -536,11 +520,6 @@ function create_overview_total_graphs(preFilteredRuns = null) {
     destroy_overview_donuts(overviewCardsContainer);
     overviewCardsContainer.innerHTML = '';
     const allProjects = { ...projects_by_name, ...projects_by_tag };
-    const durationsByProject = {};
-    for (const [projectName, projectRuns] of Object.entries(allProjects)) {
-        const durations = projectRuns.map(r => r.elapsed_s);
-        durationsByProject[projectName] = durations;
-    }
     let latestRunByProject = {};
     if (!preFilteredRuns) {
         settings.switch.runName && Object.assign(latestRunByProject, latestRunByProjectName);
@@ -551,9 +530,9 @@ function create_overview_total_graphs(preFilteredRuns = null) {
     for (const [projectName, latestRun] of Object.entries(latestRunByProject)) {
         const projectRuns = allProjects[projectName];
         const totalRunsAmount = projectRuns.length;
-        const passedRunsAmount = projectRuns.filter(run => run.failed === 0 && run.passed > 0).length;
+        const passedRunsAmount = projectRuns.filter(run => get_run_status(run) === "passed").length;
         const failedRunsAmount = projectRuns.filter(run => run.failed > 0).length;
-        const skippedRunsAmount = projectRuns.filter(run => run.failed === 0 && run.passed === 0 && run.skipped > 0).length;
+        const skippedRunsAmount = projectRuns.filter(run => get_run_status(run) === "skipped").length;
         const passRate = ((passedRunsAmount / totalRunsAmount) * 100).toFixed(2);
         const projectRunDurations = projectRuns.map(run => run.elapsed_s);
         const avgDuration = projectRunDurations.reduce((a, b) => a + Number(b), 0) / projectRunDurations.length;
@@ -587,20 +566,51 @@ function create_overview_total_graphs(preFilteredRuns = null) {
 }
 
 // create a run card that will be displayed within each project section in overview
+// every run card needs these for all runs of its project: the project run lists are rebuilt per
+// filter pass (so cached per list), all runs never change
+const runListHasVersions = new WeakMap();
+let namesWithVersions = null;
+
+const durationSums = new WeakMap();
+
+function get_durations_sum(durations) {
+    if (!durationSums.has(durations)) durationSums.set(durations, durations.reduce((a, b) => a + parseFloat(b), 0));
+    return durationSums.get(durations);
+}
+
+function has_project_version(run) {
+    return run.project_version != null && run.project_version !== "None";
+}
+
+function project_runs_have_versions(projectRuns) {
+    if (!runListHasVersions.has(projectRuns)) runListHasVersions.set(projectRuns, projectRuns.some(has_project_version));
+    return runListHasVersions.get(projectRuns);
+}
+
+function project_name_ever_has_versions(name) {
+    if (!namesWithVersions) namesWithVersions = new Set(runs.filter(has_project_version).map(run => run.name));
+    return namesWithVersions.has(name);
+}
+
 function create_project_run_card(run, projectName, runIndex, runNumber, passRate, percent, durations, isForOverview = false, isTotalStats = false, sectionPrefix = 'overview') {
-    const avg = arr => arr.reduce((a, b) => a + parseFloat(b), 0) / arr.length;
     const passedCount = isTotalStats ? run.passed_runs : run.passed;
     const failedCount = isTotalStats ? run.failed_runs : run.failed;
     const skippedCount = isTotalStats ? run.skipped_runs : run.skipped;
     const stats = [passedCount, failedCount, skippedCount, run.elapsed_s, run.path, run.full_name];
     const duration = isTotalStats ? run.average_duration ?? run.elapsed_s : run.elapsed_s;
     const duration_rounded = format_duration(Number(duration));
-    const durationsForAvg = durations.filter(item => item !== duration);
-    const average = durationsForAvg.length ? avg(durationsForAvg) : duration;
+    // durations are in run order and the cards newest first, so runIndex counts from the end; the card's
+    // own run is left out by position, so other runs with the same duration stay in. A total stats card
+    // compares the average with every run. The sum of all durations is shared by the cards of a project
+    const excludedIndex = isTotalStats ? -1 : durations.length - 1 - runIndex;
+    const total = get_durations_sum(durations);
+    const otherCount = excludedIndex >= 0 && excludedIndex < durations.length ? durations.length - 1 : durations.length;
+    const otherTotal = otherCount < durations.length ? total - parseFloat(durations[excludedIndex]) : total;
+    const average = otherCount > 0 ? otherTotal / otherCount : duration;
     const status = isTotalStats
         ? (failedCount > 0 ? 'failed' : (skippedCount > 0 && passedCount === 0 ? 'skipped' : 'passed'))
-        : (run.failed > 0 ? 'failed' : (run.skipped > 0 && run.passed === 0 ? 'skipped' : 'passed'));
-    const logPath = (!isTotalStats && use_logs) ? transform_file_path(run.path).replaceAll('\\', '\\\\') : '';
+        : get_run_status(run);
+    const logPath = (!isTotalStats && use_logs) ? transform_file_path(run.path) : '';
     const logName = (!isTotalStats && use_logs) ? 'log.html' : '';
     const isDark = document.documentElement.classList.contains("dark-mode");
     const svg = isDark ? clockSVG("white") : clockSVG("black");
@@ -754,13 +764,6 @@ function update_overview_filter_visibility() {
     });
 }
 
-function update_donut_charts() {
-    document.querySelectorAll(".overview-canvas").forEach(canvas => {
-        const chart = canvas.querySelector("canvas").chartInstance;
-        if (chart) chart.update();
-    });
-}
-
 function update_grouped_data_for_filter() {
     Object.keys(projects_by_tag).forEach(k => delete projects_by_tag[k]);
     Object.keys(projects_by_name).forEach(k => delete projects_by_name[k]);
@@ -781,7 +784,7 @@ function update_grouped_data_for_filter() {
             const subtitleEl = bar.querySelector(".card-header h6");
             if (subtitleEl) {
                 const totalRunsAmount = projectRuns.length;
-                const passedRunsAmount = projectRuns.filter(run => run.failed === 0).length;
+                const passedRunsAmount = projectRuns.filter(run => get_run_status(run) === "passed").length;
                 const passRate = ((passedRunsAmount / totalRunsAmount) * 100).toFixed(2);
                 subtitleEl.textContent = `Total Runs: ${totalRunsAmount} | Passed Runs: ${passRate}%`;
             }
@@ -811,21 +814,6 @@ function update_projectbar_visibility() {
 
 function update_overview_prefix_display() {
     const showPrefixes = !!(settings && settings.show && settings.show.prefixes);
-    // Update Overview Statistics card titles
-    const overviewCards = document.querySelectorAll('#overviewRunCardsContainer .overview-card');
-    overviewCards.forEach(card => {
-        const id = card.id; // e.g., overviewproject_1Card0
-        const match = id.match(/^overview(.+?)Card\d+$/);
-        if (!match) return;
-        const originalProjectName = match[1];
-        const headerTitle = card.querySelector('.col.text-center h5.card-title');
-        if (!headerTitle) return;
-        headerTitle.textContent = showPrefixes
-            ? originalProjectName
-            : (originalProjectName.startsWith('project_')
-                ? originalProjectName.replace(/^project_/, '')
-                : originalProjectName);
-    });
 
     // Update Project Bar section headers
     const projectBars = document.querySelectorAll('.overview-project-card');
@@ -845,16 +833,16 @@ function update_overview_prefix_display() {
 // prevents regeneration of run cards, just changes class for duration highlight
 function update_duration_comparison_for_project(projectName, projectRuns, percentage) {
     const projectRunsReversed = projectRuns.slice().reverse();
+    const durations = projectRunsReversed.map(r => parseFloat(r.elapsed_s));
+    const total = durations.reduce((a, b) => a + b, 0);
     projectRunsReversed.forEach((run, idx) => {
         const comparesElement = document.getElementById(`${projectName}RunCardCompares${idx}`);
         const comparesValueElement = document.getElementById(`${projectName}RunCardComparesValue${idx}`);
         if (!comparesElement || !comparesValueElement) return;
 
         const duration = parseFloat(comparesValueElement.getAttribute("value"));
-        const durationsForAvg = projectRunsReversed
-            .map(r => parseFloat(r.elapsed_s))
-            .filter((_, i) => i !== idx);
-        const averageDuration = durationsForAvg.reduce((a, b) => a + b, 0) / durationsForAvg.length;
+        // the average of the other runs
+        const averageDuration = (total - durations[idx]) / (durations.length - 1);
         comparesElement.className = compare_to_average(duration, averageDuration, percentage);
     });
 }
@@ -881,8 +869,6 @@ export {
     create_project_overview,
     update_projectbar_visibility,
     update_overview_prefix_display,
-    update_donut_charts,
-    clear_project_filter,
     set_filter_show_current_project,
     prepare_overview,
     update_overview_latest_heading,

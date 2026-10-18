@@ -1,4 +1,4 @@
-import { settings, get_run_label } from "../variables/settings.js";
+import { settings } from "../variables/settings.js";
 import { passedConfig, failedConfig, skippedConfig, rerunBorderColor, rerunBorderWidth } from "../variables/chartconfig.js";
 import { convert_timeline_data, group_timeline_values, parse_test_attempts, resolve_test_status, count_attempt_flips } from "./helpers.js";
 import { strip_tz_suffix } from "../common.js";
@@ -61,12 +61,12 @@ function get_most_flaky_data(dataType, graphType, filteredData, ignore, recent, 
 
     if (graphType == "bar") {
         var [datasets, labels, count] = [[], [], 0];
-        for (const key in sortedData) {
+        for (const [label, value] of sortedData) {
             if (count == limit) {
                 break;
             }
-            labels.push(sortedData[key][0]);
-            datasets.push(sortedData[key][1].flips);
+            labels.push(label);
+            datasets.push(value.flips);
             count += 1;
         }
         const graphData = {
@@ -78,13 +78,13 @@ function get_most_flaky_data(dataType, graphType, filteredData, ignore, recent, 
         };
         return [graphData, data];
     } else if (graphType == "timeline") {
-        var [labels, runStartsSet, count, runLabelsSet] = [[], new Set(), 0, new Set()];
-        for (const key in sortedData) {
+        var [labels, runStartsSet, count] = [[], new Set(), 0];
+        for (const [label, value] of sortedData) {
             if (count == limit) {
                 break;
             }
-            labels.push(sortedData[key][0]);
-            for (const runStart of sortedData[key][1].run_starts) {
+            labels.push(label);
+            for (const runStart of value.run_starts) {
                 runStartsSet.add(runStart);
             }
             count += 1;
@@ -97,7 +97,6 @@ function get_most_flaky_data(dataType, graphType, filteredData, ignore, recent, 
         for (const runStart of runStarts) {
             for (const label of labels) {
                 const foundValues = groups.get(label).get(runStart) ?? [];
-                foundValues.forEach(value => runLabelsSet.add(get_run_label(value)));
                 if (foundValues.length > 0) {
                     const value = foundValues[0];
                     const [status, attempts] = status_of(value);
@@ -124,7 +123,6 @@ function get_most_flaky_data(dataType, graphType, filteredData, ignore, recent, 
             }
             runAxis += 1;
         }
-        if (settings.show.aliases === "alias" || settings.show.aliases === "run_name") { runStarts = [...runLabelsSet] }
         datasets = convert_timeline_data(datasets)
         var graphData = {
             labels: labels,

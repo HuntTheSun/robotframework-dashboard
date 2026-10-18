@@ -1,3 +1,4 @@
+import { escape_html } from "../escape.js";
 import { settings } from '../variables/settings.js';
 import { runs } from '../variables/data.js';
 import { set_local_storage_item } from '../localstorage.js';
@@ -62,7 +63,8 @@ function capture_current_filters() {
     const profile = {};
     profile.runs = document.getElementById("runs").value;
     const tagInputs = document.getElementById("runTag").querySelectorAll("input.form-check-input");
-    profile.runTags = Array.from(tagInputs).map(el => ({ id: el.id.replace(/^runTagCheckBox/, ""), checked: el.checked }));
+    // the key stays "id" for saved profiles, the value is the raw tag
+    profile.runTags = Array.from(tagInputs).map(el => ({ id: el.value, checked: el.checked }));
     profile.tagMode = document.getElementById("tagMode")?.value ?? "AND";
     const versionInputs = document.getElementById("projectVersionList").querySelectorAll("input.form-check-input");
     profile.projectVersions = Array.from(versionInputs).map(el => ({ value: el.value, checked: el.checked }));
@@ -134,20 +136,38 @@ function build_profile_from_checks() {
     return profile;
 }
 
-function profiles_match(saved, current) {
-    for (const key of Object.keys(saved)) {
-        const s = saved[key];
-        const c = current[key];
-        if (Array.isArray(s)) {
-            if (!Array.isArray(c) || s.length !== c.length) return false;
-            for (let i = 0; i < s.length; i++) {
-                if (JSON.stringify(s[i]) !== JSON.stringify(c[i])) return false;
-            }
-        } else {
-            if (String(s) !== String(c)) return false;
-        }
+// checkbox lists (run tags, versions, custom filter values) are compared on what is checked, so a
+// different order or an option that appeared in newer data, unchecked, still matches the profile
+function is_checkbox_list(value) {
+    return Array.isArray(value) && value.every(item => item && typeof item === "object" && "checked" in item);
+}
+
+function checked_options(list) {
+    return new Set(list.filter(item => item.checked).map(item => String(item.id ?? item.value)));
+}
+
+function filter_values_match(saved, current) {
+    if (is_checkbox_list(saved)) {
+        if (!is_checkbox_list(current)) return false;
+        const savedChecked = checked_options(saved);
+        const currentChecked = checked_options(current);
+        return savedChecked.size === currentChecked.size && [...savedChecked].every(option => currentChecked.has(option));
     }
-    return true;
+    if (Array.isArray(saved)) {
+        return Array.isArray(current) && saved.length === current.length
+            && saved.every((item, index) => JSON.stringify(item) === JSON.stringify(current[index]));
+    }
+    // custom filters and their modes are objects keyed by dimension
+    if (saved && typeof saved === "object") {
+        if (!current || typeof current !== "object") return false;
+        const keys = new Set([...Object.keys(saved), ...Object.keys(current)]);
+        return [...keys].every(key => filter_values_match(saved[key], current[key]));
+    }
+    return String(saved) === String(current);
+}
+
+function profiles_match(saved, current) {
+    return Object.keys(saved).every(key => filter_values_match(saved[key], current[key]));
 }
 
 function find_matching_profile() {
@@ -216,8 +236,7 @@ function apply_filter_profile(profile, name) {
         const tagMap = {};
         profile.runTags.forEach(t => tagMap[t.id] = t.checked);
         tagInputs.forEach(el => {
-            tag=el.id.replace(/^runTagCheckBox/, "")
-            if (tagMap[tag] !== undefined) el.checked = tagMap[tag];
+            if (tagMap[el.value] !== undefined) el.checked = tagMap[el.value];
         });
         update_filter_active_indicator("runTagCheckBoxAll", "filterRunTagSelectedIndicator");
     }
@@ -317,8 +336,8 @@ function populate_filter_profile_select() {
     for (const name of names) {
         const li = document.createElement("li");
         li.className = "list-group-item list-group-item-action d-flex align-items-center small";
-        li.innerHTML = `<span class="filter-profile-apply flex-grow-1" data-profile="${name}" id="profile${name}" style="cursor: pointer;">${name}</span>`
-            + `<span class="filter-profile-delete ms-2" data-profile="${name}" id="profileCheck${name}" title="Delete profile" style="cursor: pointer;">&times;</span>`;
+        li.innerHTML = `<span class="filter-profile-apply flex-grow-1" data-profile="${escape_html(name)}" id="profile${escape_html(name)}" style="cursor: pointer;">${escape_html(name)}</span>`
+            + `<span class="filter-profile-delete ms-2" data-profile="${escape_html(name)}" id="profileCheck${escape_html(name)}" title="Delete profile" style="cursor: pointer;">&times;</span>`;
         list.appendChild(li);
     }
 }
@@ -360,6 +379,7 @@ export {
     enter_profile_edit_mode,
     exit_profile_edit_mode,
     populate_filter_profile_select,
+    profiles_match,
     save_filter_profile_to_storage,
     update_active_profile,
     update_profile_select_display,

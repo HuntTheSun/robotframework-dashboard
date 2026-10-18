@@ -1,5 +1,5 @@
 import { settings } from "./variables/settings.js";
-import { set_local_storage_item } from "./localstorage.js";
+import { set_local_storage_item, with_batched_settings_write } from "./localstorage.js";
 import { graphMetadata } from "./variables/graphmetadata.js";
 import { space_to_camelcase, add_alert } from "./common.js";
 import { gridEditMode } from "./variables/globals.js";
@@ -299,15 +299,16 @@ function setup_section_order() {
         document.querySelectorAll(".move-up-section").forEach(btn => { btn.hidden = false })
         document.querySelectorAll(".move-down-section").forEach(btn => { btn.hidden = false })
         document.querySelectorAll(".shown-section, .hidden-section").forEach(btn => {
-            const prefix = btn.id.slice(0, 3);
-            const label = prefix.charAt(0).toUpperCase();
+            // the section name save_layout stores for this button: runSectionShown -> "Run Statistics"
+            const key = btn.id.replace(/Section(Shown|Hidden)$/, "");
+            const sectionName = `${key.charAt(0).toUpperCase()}${key.slice(1)} Statistics`;
             // Decide context: dashboard or overview based on the containing section/card
             const isOverview = !!btn.closest('#overview');
             const showList = isOverview
                 ? settings.view.overview.sections.show
                 : settings.view.dashboard.sections.show;
 
-            let shouldShow = showList.some(section => section.startsWith(label));
+            const shouldShow = showList.includes(sectionName);
 
             if (btn.classList.contains("shown-section")) {
                 btn.hidden = !shouldShow;
@@ -560,7 +561,13 @@ function customize_layout() {
     add_alert("You can now change your layout. Don't forget to save!", "info")
 }
 
+// one settings write for the whole layout instead of one per grid and list
 function save_layout() {
+    with_batched_settings_write(save_layout_settings);
+    add_alert("Layout has been updated and saved to settings in local storage!", "success")
+}
+
+function save_layout_settings() {
     document.getElementById("customizeLayout").hidden = false;
     document.getElementById("saveLayout").hidden = true;
     document.getElementById("mainNavItems").classList.remove("navbar-disabled");
@@ -668,8 +675,6 @@ function save_layout() {
     if (shownOverviewSections.length > 0) {
         set_local_storage_item("view.overview.sections.show", shownOverviewSections)
     }
-
-    add_alert("Layout has been updated and saved to settings in local storage!", "success")
 }
 
 function setup_edit_mode_icons(hidden) {

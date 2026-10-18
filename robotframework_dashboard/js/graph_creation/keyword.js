@@ -4,11 +4,9 @@ import { get_statistics_graph_data } from "../graph_data/statistics.js";
 import { get_duration_graph_data } from "../graph_data/duration.js";
 import { get_graph_config } from "../graph_data/graph_config.js";
 import { get_exceptions_data } from "../graph_data/exceptions.js";
-import { format_duration } from "../common.js";
 import { create_chart, update_chart } from "./chart_factory.js";
-import { build_most_failed_config, build_most_time_consuming_config } from "./config_helpers.js";
-import { get_keyword_stats_data } from "../graph_data/stats.js";
-import { update_height, get_keyword_select_key } from "../graph_data/helpers.js";
+import { apply_timeline_run_axis, build_most_failed_config, build_most_time_consuming_config } from "./config_helpers.js";
+import { update_height, get_keyword_select_key, get_run_label_by_run_start, truncate_message } from "../graph_data/helpers.js";
 
 function _build_keyword_statistics_config() {
     const data = get_statistics_graph_data("keyword", settings.graphTypes.keywordStatisticsGraphType, filteredKeywords);
@@ -96,7 +94,7 @@ function _build_keyword_exceptions_config() {
         config.options.plugins.tooltip = {
             callbacks: {
                 label: function (context) {
-                    const runLabel = callbackData[context.raw.x[0]];
+                    const runLabel = get_run_label_by_run_start(callbackData[context.raw.x[0]]);
                     const exceptionLabel = context.raw.y;
                     const key = `${exceptionLabel}::${context.raw.x[0]}`;
                     const meta = pointMeta ? pointMeta[key] : null;
@@ -104,34 +102,18 @@ function _build_keyword_exceptions_config() {
                     return [
                         `Run: ${runLabel}`,
                         `Count: ${meta.amount}`,
-                        `Message: ${meta.message.length > 120 ? meta.message.substring(0, 120) + "..." : meta.message}`,
+                        `Message: ${truncate_message(meta.message)}`,
                     ];
                 },
             },
         };
-        config.options.scales.x = {
-            ticks: {
-                minRotation: 45,
-                maxRotation: 45,
-                stepSize: 1,
-                callback: function (value, index, ticks) {
-                    return callbackData[this.getLabelForValue(value)];
-                },
-            },
-            title: {
-                display: settings.show.axisTitles,
-                text: "Run",
-            },
-            type: "timelineScale",
-        };
+        apply_timeline_run_axis(config, callbackData, { logClick: false });
         config.options.scales.y.ticks = {
             callback: function (value, index, ticks) {
                 return this.getLabelForValue(value).slice(0, 40);
             },
             autoSkip: false,
         };
-        delete config.options.onClick;
-        if (!settings.show.dateLabels) { config.options.scales.x.ticks.display = false }
     }
     update_height("keywordExceptionsVertical", config.data.labels.length, settings.graphTypes.keywordExceptionsGraphType);
     return config;
@@ -159,18 +141,6 @@ function update_keyword_most_time_consuming_graph() { update_chart("keywordMostT
 function update_keyword_most_used_graph() { update_chart("keywordMostUsedGraph", _build_keyword_most_used_config); }
 function update_keyword_exceptions_graph() { update_chart("keywordExceptionsGraph", _build_keyword_exceptions_config); }
 
-function create_keyword_stat_widgets() {
-    const data = get_keyword_stats_data(filteredKeywords);
-    const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.innerText = val; };
-    setVal('keywordStatExecutionsValue', data.totalExecutions);
-    setVal('keywordStatUniqueValue',     data.uniqueKeywords);
-    setVal('keywordStatPassedValue',     data.passedKeywords);
-    setVal('keywordStatFailedValue',     data.failedKeywords);
-    setVal('keywordStatTotalTimeValue',  format_duration(data.totalTime));
-    setVal('keywordStatAvgTimeValue',    format_duration(data.avgTime));
-}
-function update_keyword_stat_widgets() { create_keyword_stat_widgets(); }
-
 export {
     create_keyword_statistics_graph,
     create_keyword_times_run_graph,
@@ -182,7 +152,6 @@ export {
     create_keyword_most_time_consuming_graph,
     create_keyword_most_used_graph,
     create_keyword_exceptions_graph,
-    create_keyword_stat_widgets,
     update_keyword_statistics_graph,
     update_keyword_times_run_graph,
     update_keyword_total_duration_graph,
@@ -193,5 +162,4 @@ export {
     update_keyword_most_time_consuming_graph,
     update_keyword_most_used_graph,
     update_keyword_exceptions_graph,
-    update_keyword_stat_widgets,
 };

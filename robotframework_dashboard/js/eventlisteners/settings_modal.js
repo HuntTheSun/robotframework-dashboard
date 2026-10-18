@@ -1,6 +1,6 @@
+import { escape_html } from "../escape.js";
 import { keywords } from "../variables/data.js";
 import { settings } from "../variables/settings.js";
-import { escape_html_for_merge } from "../variables/globals.js";
 import { add_alert } from "../common.js";
 import { set_local_storage_item } from "../localstorage.js";
 import { setup_data_and_graphs } from "../menu.js";
@@ -12,10 +12,18 @@ import { update_duration_comparison_for_all_projects } from "../graph_creation/o
 import { confirm_action } from "./confirm_modal.js";
 import { apply_notes_enabled } from "../notes/ui.js";
 
+const LOGO_MAX_SIZE = 256;
+
 // function to create customized view eventlisteners
 function setup_settings_modal() {
     // function to catch the closing of the settings modal
+    // closing the modal without a change keeps the page as it is instead of rebuilding every graph
+    let settingsOnOpen = null;
+    document.getElementById("settingsModal").addEventListener("show.bs.modal", function () {
+        settingsOnOpen = JSON.stringify(settings);
+    });
     document.getElementById("settingsModal").addEventListener("hidden.bs.modal", function () {
+        if (settingsOnOpen !== null && JSON.stringify(settings) === settingsOnOpen) return;
         const scrollY = window.scrollY;
         apply_notes_enabled();
         // the rebuild hides the pages, which collapses the page height and loses the scroll position
@@ -40,9 +48,9 @@ function setup_settings_modal() {
                 const item = document.createElement("div");
                 item.className = "list-group-item d-flex justify-content-between align-items-center";
                 item.innerHTML = `
-                    <span>${lib}</span>
+                    <span>${escape_html(lib)}</span>
                     <div class="form-check form-switch mb-0">
-                        <input class="form-check-input" type="checkbox" id="keyword-${lib}"
+                        <input class="form-check-input" type="checkbox" id="keyword-${escape_html(lib)}"
                             ${isChecked ? "checked" : ""}>
                     </div>
                 `;
@@ -73,8 +81,8 @@ function setup_settings_modal() {
             const item = document.createElement("li");
             item.className = "list-group-item list-group-item-action d-flex small";
             item.innerHTML = `
-                <input class="form-check-input me-1" type="checkbox" value="${escape_html_for_merge(dimName)}" id="${checkBoxId}" ${isChecked ? "checked" : ""}>
-                <label class="form-check-label ms-2" for="${checkBoxId}">${escape_html_for_merge(dimName)}</label>
+                <input class="form-check-input me-1" type="checkbox" value="${escape_html(dimName)}" id="${checkBoxId}" ${isChecked ? "checked" : ""}>
+                <label class="form-check-label ms-2" for="${checkBoxId}">${escape_html(dimName)}</label>
             `;
             container.appendChild(item);
             item.querySelector("input").addEventListener("change", e => {
@@ -287,13 +295,16 @@ function setup_settings_modal() {
             const img = new Image();
             img.onload = function () {
                 const size = Math.max(img.width, img.height);
+                // the logo is stored in the settings in localStorage, so a photo is scaled down to an
+                // icon size instead of filling the storage
+                const scale = Math.min(1, LOGO_MAX_SIZE / size);
                 const canvas = document.createElement('canvas');
-                canvas.width = size;
-                canvas.height = size;
+                canvas.width = Math.round(size * scale);
+                canvas.height = Math.round(size * scale);
                 const ctx = canvas.getContext('2d');
-                const offsetX = Math.floor((size - img.width) / 2);
-                const offsetY = Math.floor((size - img.height) / 2);
-                ctx.drawImage(img, offsetX, offsetY, img.width, img.height);
+                const width = img.width * scale;
+                const height = img.height * scale;
+                ctx.drawImage(img, (canvas.width - width) / 2, (canvas.height - height) / 2, width, height);
                 const squaredDataUrl = canvas.toDataURL('image/png');
                 set_local_storage_item('branding.logo', squaredDataUrl);
                 document.getElementById('removeCustomLogo').disabled = false;
@@ -320,16 +331,22 @@ function setup_settings_modal() {
         const textArea = document.getElementById("settingsTextArea");
         textArea.select();
         textArea.setSelectionRange(0, 99999);
-        navigator.clipboard.writeText(textArea.value);
-        add_alert("Copied settings to clipboard!", "success")
+        // the clipboard API is missing on a dashboard served over plain http
+        if (!navigator.clipboard) {
+            add_alert("Copying is not available here, select the settings in the text area and copy them by hand", "danger");
+            return;
+        }
+        navigator.clipboard.writeText(textArea.value)
+            .then(() => add_alert("Copied settings to clipboard!", "success"))
+            .catch(() => add_alert("Could not copy the settings to the clipboard", "danger"));
     }
 
     async function reset_settings_to_default() {
-        const confirmed = await confirm_action(`Are you sure you want to resset all settings?<br><br>
+        const confirmed = await confirm_action(`Are you sure you want to reset all settings?<br><br>
                     This may override:<br>
                     - Graph settings<br>
                     - Custom layouts (e.g., moved or resized graphs)<br>
-                    - Hidden graphs
+                    - Hidden graphs<br><br>
                     If you only want to update a few small settings it is recommended to update the settings json and re-apply it.
                 `);
         if (confirmed) {
@@ -353,7 +370,7 @@ function setup_settings_modal() {
                 localStorage.setItem("settings", JSON.stringify(newSettings));
                 location.reload();
             } catch (e) {
-                add_alert("Failed to update json config: " + e, "danger")
+                add_alert("Failed to update json config: " + escape_html(e), "danger")
             }
         }
     }

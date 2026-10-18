@@ -2,12 +2,12 @@ import { setup_filtered_data_and_filters } from "./filter/pipeline.js";
 import { clear_overview_project_navigation_filter } from "./filter/controls.js";
 import { areGroupedProjectsPrepared, overviewNavStore, tablesNavStore } from "./variables/globals.js";
 import { space_to_camelcase, fade_in, fade_out } from "./common.js";
-import { set_local_storage_item, setup_overview_localstorage } from "./localstorage.js";
+import { set_local_storage_item, setup_overview_localstorage, with_batched_settings_write } from "./localstorage.js";
 import { create_dashboard_graphs } from "./graph_creation/all.js";
 import { settings } from "./variables/settings.js";
 import { setup_theme } from "./theme.js";
 import { setup_graph_view_buttons } from "./eventlisteners/graph_view_buttons.js";
-import { setup_overview_order_filters } from "./eventlisteners/overview_listeners.js";
+import { setup_overview_order_filters, setup_overview_log_links } from "./eventlisteners/overview_listeners.js";
 import { setup_section_order, setup_graph_order, setup_overview_section_layout_buttons } from "./layout.js";
 import { setup_information_popups } from "./information.js";
 import { prepare_overview, update_overview_prefix_display } from "./graph_creation/overview.js";
@@ -78,11 +78,11 @@ function neighbor_indices(bestIndex, length) {
 }
 
 function update_menu(item) {
-    ["overview", "dashboard", "compare", "tables"].forEach(menuItem => {
+    with_batched_settings_write(() => ["overview", "dashboard", "compare", "tables"].forEach(menuItem => {
         const id = `menu${menuItem.charAt(0).toUpperCase() + menuItem.slice(1)}`;
         set_local_storage_item(`menu.${menuItem}`, (item === id));
         document.getElementById(id).classList.toggle("active", id === item);
-    });
+    }));
     // the overview shows all projects, so a project filter that was applied by clicking an
     // overview card is dropped again when navigating back to it (issue #348)
     if (item === "menuOverview") { clear_overview_project_navigation_filter(); }
@@ -139,17 +139,27 @@ function setup_menu() {
     document.addEventListener("layout-user-action", () => setup_tables_section_menu_buttons());
 }
 
+// a call made while an earlier one still waits for its animation frames (fast page switches)
+// replaces it; the overview preparation the earlier call asked for is kept for the newer one
+let dataAndGraphsGeneration = 0;
+let pendingOverviewPreparation = false;
+
 // function to update all graph data, function is called when updating filters and when the page loads
 function setup_data_and_graphs(menuUpdate = false, prepareOverviewProjectData = false) {
+    const generation = ++dataAndGraphsGeneration;
+    pendingOverviewPreparation = pendingOverviewPreparation || prepareOverviewProjectData;
     setup_spinner(false);
     requestAnimationFrame(() => {
         requestAnimationFrame(() => {
+            if (generation !== dataAndGraphsGeneration) return;
             setup_filtered_data_and_filters();
-            if (prepareOverviewProjectData) {
+            if (pendingOverviewPreparation) {
+                pendingOverviewPreparation = false;
                 prepare_overview();
                 setup_overview_localstorage();
                 setup_overview_section_layout_buttons();
                 setup_overview_order_filters();
+                setup_overview_log_links();
             }
             setup_section_order();
             setup_graph_order();
@@ -160,6 +170,7 @@ function setup_data_and_graphs(menuUpdate = false, prepareOverviewProjectData = 
             // let the page sections and events be setup before removing the spinner
             // then load the graphs
             requestAnimationFrame(() => {
+                if (generation !== dataAndGraphsGeneration) return;
                 setup_spinner(true);
                 setup_dashboard_section_menu_buttons();
                 setup_overview_section_menu_buttons();
@@ -193,6 +204,8 @@ function setup_spinner(hide) {
         loading.style.display = "";
     }
 }
+
+let dashboardNavListenersBound = false;
 
 // function to update the section (menu) buttons with the correct eventlisteners
 // also sets up the automatic highlighting of the section that is most visible in the top
@@ -234,10 +247,13 @@ function setup_dashboard_section_menu_buttons() {
             sectionMap[bestMatch.id].setAttribute("aria-current", "true");
         }
     }
-
-    window.addEventListener("scroll", update_active_section);
     update_active_section();
 
+    // the buttons and sections are in the template and outlive every rebuild that calls this function,
+    // so their listeners are added once instead of once per rebuild
+    if (dashboardNavListenersBound) return;
+    dashboardNavListenersBound = true;
+    window.addEventListener("scroll", update_active_section);
     sectionButtons.forEach(btn => {
         btn.addEventListener("click", () => {
             const target = document.getElementById(btn.id.slice(0, -3));
@@ -350,32 +366,35 @@ function setup_overview_section_menu_buttons() {
             if (!settings.show.prefixes && name.startsWith('project_')) {
                 name = name.replace(/^project_/, '');
             }
-            btn.textContent = name;
+            if (btn.textContent !== name) btn.textContent = name;
         });
         const bestIndex = compute_best_visible_index(sections);
         const indices = neighbor_indices(bestIndex, sections.length);
 
+        // this runs on every scroll and the navbar MutationObserver rebuilds the sidebar on every change,
+        // so only what really changed is written: the same value or the same position is still a mutation
         // Reorder the visible buttons (up to 3) so they sit in section order inside the track
-        indices.forEach(idx => {
-            const btn = buttonMap.get(sections[idx].id);
-            if (!btn) return;
-            btn.hidden = !showButtons;
-            overviewTrack.appendChild(btn);
-        });
+        const visibleButtons = indices.map(idx => buttonMap.get(sections[idx].id)).filter(Boolean);
+        const trackTail = [...overviewTrack.children].slice(-visibleButtons.length);
+        if (visibleButtons.some((btn, index) => trackTail[index] !== btn)) {
+            visibleButtons.forEach(btn => overviewTrack.appendChild(btn));
+        }
 
         sections.forEach((section, idx) => {
             const btn = buttonMap.get(section.id);
             if (!btn) return;
-            btn.hidden = !showButtons || !indices.includes(idx);
+            const hidden = !showButtons || !indices.includes(idx);
+            if (btn.hidden !== hidden) btn.hidden = hidden;
             const isActive = showButtons && idx === bestIndex;
             btn.classList.toggle("active", isActive);
             if (isActive) {
-                btn.setAttribute("aria-current", "true");
-            } else {
+                if (btn.getAttribute("aria-current") !== "true") btn.setAttribute("aria-current", "true");
+            } else if (btn.hasAttribute("aria-current")) {
                 btn.removeAttribute("aria-current");
             }
         });
-        overviewTrack.hidden = !showButtons || indices.length === 0;
+        const trackHidden = !showButtons || indices.length === 0;
+        if (overviewTrack.hidden !== trackHidden) overviewTrack.hidden = trackHidden;
     };
 
     window.addEventListener("scroll", updateVisibleButtons, { passive: true });
